@@ -278,11 +278,14 @@ public class Utils {
 
     public static void showCaptchaPopup(String url, Context context, int code, Exception e, boolean force_close, Fragment fragment, Preference p){
         if(context != null) {
+            boolean useNumericCaptcha = (url == null || url.length() == 0);
             if (!checkConnection(context)) {
                 //no internet
                 //showErrorPopup(context, "네트워크 연결이 없습니다.", e, force_close);
                 Toast.makeText(context, "네트워크 연결이 없습니다.", Toast.LENGTH_LONG).show();
                 if (force_close) ((Activity) context).finish();
+            } else if (useNumericCaptcha) {
+                showTokiCaptchaPopup(context, p);
             } else if (captchaCount == 0) {
                 startCaptchaActivity(context, code, fragment, url);
             } else {
@@ -297,7 +300,10 @@ public class Utils {
                         .setNeutralButton("확인", (dialogInterface, i) -> {
                             if (force_close) ((Activity) context).finish();
                         })
-                        .setPositiveButton("CAPTCHA 인증", (dialog, which) -> startCaptchaActivity(context, code, fragment, url))
+                        .setPositiveButton("CAPTCHA 인증", (dialog, which) -> {
+                            if (useNumericCaptcha) showTokiCaptchaPopup(context, p);
+                            else startCaptchaActivity(context, code, fragment, url);
+                        })
                         .setNegativeButton("URL 설정", (dialogInterface, i) -> urlSettingPopup(context, p))
                         .setOnCancelListener(dialogInterface -> {
                             if (force_close) ((Activity) context).finish();
