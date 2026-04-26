@@ -386,7 +386,7 @@ public class MainAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         void clickedRetry();
     }
 
-    private class MainFetcher extends AsyncTask<Void, Integer, MainPage> {
+    private class MainFetcher extends AsyncTask<Void, MainPage, MainPage> {
         @Override
         protected void onPreExecute() {
             super.onPreExecute();
@@ -400,14 +400,27 @@ public class MainAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             if(login!=null && login.isValid()){
                 p.getLogin().buildCookie(cookie);
             }
+            MainPage cached = MainPage.fromCache(httpClient);
+            if(cached != null && cached.getRecent().size() > 0)
+                publishProgress(cached);
             return new MainPage(httpClient);
+        }
+
+        @Override
+        protected void onProgressUpdate(MainPage... values) {
+            super.onProgressUpdate(values);
+            if(values.length > 0)
+                applyMainPage(values[0]);
         }
 
         @Override
         protected void onPostExecute(MainPage u) {
             super.onPostExecute(u);
             fetching = false;
-            //update adapters?
+            applyMainPage(u);
+        }
+
+        private void applyMainPage(MainPage u) {
             if(u.getRecent().size() == 0){
                 return;
             }

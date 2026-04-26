@@ -9,10 +9,13 @@ import java.util.ArrayList;
 import java.util.List;
 import okhttp3.Response;
 
+import ml.melun.mangaview.MainApplication;
+
 import static ml.melun.mangaview.mangaview.MTitle.base_comic;
 
 
 public class MainPage {
+    private static final String MAIN_PAGE_CACHE_SUFFIX = "#main-page";
     List<Manga> recent, favUpdate, onlineRecent;
     List<RankingTitle> ranking;
     boolean needsCaptcha;
@@ -24,13 +27,7 @@ public class MainPage {
     List<RankingManga> weeklyRanking;
 
     void fetch(CustomHttpClient client) {
-
-        recent = new ArrayList<>();
-        ranking = new ArrayList<>();
-        weeklyRanking = new ArrayList<>();
-
-        favUpdate = new ArrayList<>();
-        onlineRecent = new ArrayList<>();
+        initLists();
 
         try{
             Response r = client.mget("",true,null);
@@ -43,54 +40,13 @@ public class MainPage {
                 fetch(client);
                 return;
             }
-            Document d = Jsoup.parse(body);
             r.close();
-            Elements galleries = d.select("div.miso-post-gallery");
-            Elements postLists = d.select("div.miso-post-list");
-            if(galleries.size() == 0 || postLists.size() == 0) {
+            if(parseBody(body)){
+                MainApplication.saveCachedText(cacheKey(client), body);
+            }else{
                 needsCaptcha = looksLikeCaptcha(body);
                 return;
             }
-
-            //recent
-            int id;
-            String name;
-            String thumb;
-            Manga mtmp;
-            Element infos;
-            Title ttmp;
-
-            for(Element e : galleries.first().select("div.post-row")){
-                id = Integer.parseInt(e.selectFirst("a").attr("href").split("comic/")[1]);
-                infos = e.selectFirst("div.img-item");
-                thumb = infos.selectFirst("img").attr("src");
-                name = infos.selectFirst("b").ownText();
-
-                mtmp = new Manga(id, name, "", base_comic);
-                mtmp.addThumb(thumb);
-                recent.add(mtmp);
-            }
-
-            int i=1;
-            for(Element e : galleries.last().select("div.post-row")){
-                id = Integer.parseInt(e.selectFirst("a").attr("href").split("comic/")[1]);
-                infos = e.selectFirst("div.img-item");
-                thumb = infos.selectFirst("img").attr("src");
-                name = infos.selectFirst("div.in-subject").ownText();
-
-                ranking.add(new RankingTitle(name, thumb, "", null, "", id, base_comic, i++));
-            }
-
-            i=1;
-            for(Element e : postLists.last().select("li.post-row")){
-                infos = e.selectFirst("a");
-                id = Integer.parseInt(infos.attr("href").split("comic/")[1]);
-                name = infos.ownText();
-
-                System.out.println(name);
-                weeklyRanking.add(new RankingManga(id, name, "", base_comic, i++));
-            }
-
         }catch(Exception e){
             e.printStackTrace();
         }
@@ -133,6 +89,82 @@ public class MainPage {
 */
     }
 
+    private void initLists() {
+        recent = new ArrayList<>();
+        ranking = new ArrayList<>();
+        weeklyRanking = new ArrayList<>();
+
+        favUpdate = new ArrayList<>();
+        onlineRecent = new ArrayList<>();
+    }
+
+    private boolean parseBody(String body) {
+        try {
+            Document d = Jsoup.parse(body);
+            Elements galleries = d.select("div.miso-post-gallery");
+            Elements postLists = d.select("div.miso-post-list");
+            if(galleries.size() == 0 || postLists.size() == 0)
+                return false;
+
+            //recent
+            int id;
+            String name;
+            String thumb;
+            Manga mtmp;
+            Element infos;
+            Title ttmp;
+
+            for(Element e : galleries.first().select("div.post-row")){
+                id = Integer.parseInt(e.selectFirst("a").attr("href").split("comic/")[1]);
+                infos = e.selectFirst("div.img-item");
+                thumb = infos.selectFirst("img").attr("src");
+                name = infos.selectFirst("b").ownText();
+
+                mtmp = new Manga(id, name, "", base_comic);
+                mtmp.addThumb(thumb);
+                recent.add(mtmp);
+            }
+
+            int i=1;
+            for(Element e : galleries.last().select("div.post-row")){
+                id = Integer.parseInt(e.selectFirst("a").attr("href").split("comic/")[1]);
+                infos = e.selectFirst("div.img-item");
+                thumb = infos.selectFirst("img").attr("src");
+                name = infos.selectFirst("div.in-subject").ownText();
+
+                ranking.add(new RankingTitle(name, thumb, "", null, "", id, base_comic, i++));
+            }
+
+            i=1;
+            for(Element e : postLists.last().select("li.post-row")){
+                infos = e.selectFirst("a");
+                id = Integer.parseInt(infos.attr("href").split("comic/")[1]);
+                name = infos.ownText();
+
+                System.out.println(name);
+                weeklyRanking.add(new RankingManga(id, name, "", base_comic, i++));
+            }
+            return true;
+        }catch(Exception e){
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    public static MainPage fromCache(CustomHttpClient client) {
+        String body = MainApplication.getCachedText(cacheKey(client));
+        if(body == null || body.length() == 0)
+            return null;
+        MainPage cached = new MainPage();
+        if(cached.parseBody(body))
+            return cached;
+        return null;
+    }
+
+    private static String cacheKey(CustomHttpClient client) {
+        return client.getUrl() + MAIN_PAGE_CACHE_SUFFIX;
+    }
+
     public static class RankingTitle extends Title{
         int ranking;
         public RankingTitle(String n, String t, String a, List<String> tg, String r, int id, int baseMode, int ranking) {
@@ -166,6 +198,10 @@ public class MainPage {
     }
     public MainPage(CustomHttpClient client) {
         fetch(client);
+    }
+
+    private MainPage() {
+        initLists();
     }
 
     private boolean looksLikeCaptcha(String body) {

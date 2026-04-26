@@ -61,6 +61,14 @@ public class MainApplication extends MultiDexApplication {
     }
 
     public static void saveVerifiedPageHtml(String url, String html) {
+        saveCachedText(url, html);
+    }
+
+    public static String getVerifiedPageHtml(String url) {
+        return getCachedText(url);
+    }
+
+    public static void saveCachedText(String url, String html) {
         if (url == null || html == null || html.length() == 0)
             return;
         String key = normalizeUrl(url);
@@ -76,7 +84,7 @@ public class MainApplication extends MultiDexApplication {
         }
     }
 
-    public static String getVerifiedPageHtml(String url) {
+    public static String getCachedText(String url) {
         if (url == null)
             return null;
         String key = normalizeUrl(url);
