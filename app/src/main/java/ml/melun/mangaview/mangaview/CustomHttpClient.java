@@ -130,6 +130,7 @@ public class CustomHttpClient {
 
             Request request = builder.build();
             response = this.client.newCall(request).execute();
+            saveResponseCookies(response);
         } catch (Exception e){
             e.printStackTrace();
             return null;
@@ -186,6 +187,8 @@ public class CustomHttpClient {
         headers.put("Cookie", cbuilder.toString());
         headers.put("User-Agent", agent);
         headers.put("Referer",p.getUrl());
+        headers.put("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+        headers.put("Accept-Language", "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7");
 
         return get(buildUrl(url), headers);
     }
@@ -222,6 +225,7 @@ public class CustomHttpClient {
 
             Request request = builder.build();
             response = this.client.newCall(request).execute();
+            saveResponseCookies(response);
         }catch (Exception e){
             e.printStackTrace();
         }
@@ -236,6 +240,21 @@ public class CustomHttpClient {
 //            isloaded = true;
 //        }
         return post(url, body, new HashMap<>());
+    }
+
+    private void saveResponseCookies(Response response) {
+        if(response == null)
+            return;
+        List<String> setCookies = response.headers("Set-Cookie");
+        for(String cookie : setCookies) {
+            int split = cookie.indexOf("=");
+            int end = cookie.indexOf(";");
+            if(split <= 0)
+                continue;
+            if(end < 0)
+                end = cookie.length();
+            setCookie(cookie.substring(0, split), cookie.substring(split + 1, end));
+        }
     }
 
     /*

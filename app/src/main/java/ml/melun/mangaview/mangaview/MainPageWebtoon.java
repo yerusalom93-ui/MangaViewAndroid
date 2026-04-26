@@ -60,14 +60,13 @@ public class MainPageWebtoon {
                 fetch(client);
                 return;
             }
-            if(looksLikeCaptcha(body)){
-                needsCaptcha = true;
+            Document d = Jsoup.parse(body);
+            Elements boxes = d.select("div.main-box");
+            if(boxes.size() == 0) {
+                needsCaptcha = looksLikeCaptcha(body);
                 r.close();
                 return;
             }
-
-            Document d = Jsoup.parse(body);
-            Elements boxes = d.select("div.main-box");
 
             dataSet = new ArrayList<>();
 
@@ -95,11 +94,11 @@ public class MainPageWebtoon {
         if(body == null)
             return false;
         String lower = body.toLowerCase();
-        return lower.contains("cf_clearance")
-                || lower.contains("cf-chl")
-                || lower.contains("challenge-platform")
-                || lower.contains("just a moment")
-                || lower.contains("captcha");
+        return lower.contains("<title>just a moment")
+                || lower.contains("cf_chl_opt")
+                || lower.contains("__cf_chl_rt_tk")
+                || lower.contains("enable javascript and cookies to continue")
+                || (lower.contains("captcha") && !lower.contains("main-box"));
     }
 
     public boolean needsCaptcha() {

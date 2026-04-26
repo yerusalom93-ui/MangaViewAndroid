@@ -315,7 +315,7 @@ public class Utils {
         }
     }
 
-    static void startCaptchaActivity(Context context, int code, Fragment fragment, String url){
+    public static void startCaptchaActivity(Context context, int code, Fragment fragment, String url){
         Intent captchaIntent = new Intent(context, CaptchaActivity.class);
         System.out.println("ppppsend " + url);
         captchaIntent.putExtra("url", url);
@@ -325,7 +325,7 @@ public class Utils {
             fragment.startActivityForResult(captchaIntent, code);
     }
 
-    static void startCaptchaActivity(Context context, int code, Fragment fragment){
+    public static void startCaptchaActivity(Context context, int code, Fragment fragment){
         Intent captchaIntent = new Intent(context, CaptchaActivity.class);
         if(fragment == null)
             ((Activity)context).startActivityForResult(captchaIntent, code);

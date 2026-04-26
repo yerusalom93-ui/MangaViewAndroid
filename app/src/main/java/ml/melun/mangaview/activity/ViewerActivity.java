@@ -53,12 +53,15 @@ import static ml.melun.mangaview.MainApplication.httpClient;
 import static ml.melun.mangaview.MainApplication.p;
 import static ml.melun.mangaview.Utils.getScreenSize;
 import static ml.melun.mangaview.Utils.hideSpinnerDropDown;
+import static ml.melun.mangaview.Utils.startCaptchaActivity;
 import static ml.melun.mangaview.Utils.showCaptchaPopup;
 import static ml.melun.mangaview.Utils.showPopup;
 import static ml.melun.mangaview.Utils.showTokiCaptchaPopup;
+import static ml.melun.mangaview.activity.CaptchaActivity.REQUEST_CAPTCHA;
 import static ml.melun.mangaview.activity.CaptchaActivity.RESULT_CAPTCHA;
 import static ml.melun.mangaview.mangaview.Title.LOAD_CAPTCHA;
 import static ml.melun.mangaview.mangaview.Title.LOAD_OK;
+import static ml.melun.mangaview.mangaview.Title.LOAD_WEB_CAPTCHA;
 
 public class ViewerActivity extends AppCompatActivity {
 
@@ -475,6 +478,10 @@ public class ViewerActivity extends AppCompatActivity {
             if(res == LOAD_CAPTCHA){
                 //캡차 처리 팝업
                 showTokiCaptchaPopup(context, p);
+                return;
+            }
+            if(res == LOAD_WEB_CAPTCHA){
+                startCaptchaActivity(context, REQUEST_CAPTCHA, null, m.getUrl());
                 return;
             }
 

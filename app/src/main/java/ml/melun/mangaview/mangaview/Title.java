@@ -35,6 +35,7 @@ public class Title extends MTitle {
     public static final int BATTERY_FULL = 4;
     public static final int LOAD_OK = 0;
     public static final int LOAD_CAPTCHA = 1;
+    public static final int LOAD_WEB_CAPTCHA = 2;
 
 
     public Title(String n, String t, String a, List<String> tg, String r, int id, int baseMode) {
@@ -74,6 +75,10 @@ public class Title extends MTitle {
                 return LOAD_CAPTCHA;
             }
             String body = r.body().string();
+            if(looksLikeCloudflareChallenge(body)){
+                r.close();
+                return LOAD_WEB_CAPTCHA;
+            }
             if(body.contains("Connect Error: Connection timed out")){
                 //adblock : try again
                 r.close();
@@ -160,6 +165,16 @@ public class Title extends MTitle {
             e.printStackTrace();
         }
         return LOAD_OK;
+    }
+
+    private boolean looksLikeCloudflareChallenge(String body) {
+        if(body == null)
+            return false;
+        String lower = body.toLowerCase();
+        return lower.contains("<title>just a moment")
+                || lower.contains("cf_chl_opt")
+                || lower.contains("__cf_chl_rt_tk")
+                || lower.contains("enable javascript and cookies to continue");
     }
 
     public boolean toggleBookmark(CustomHttpClient client, Preference p){

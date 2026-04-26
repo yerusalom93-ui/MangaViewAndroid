@@ -76,7 +76,12 @@ public class Search {
                 }
 
 
-                Response response = client.mget('/'+baseModeStr(baseMode)+"/p" + page++ + searchUrl + URLEncoder.encode(query,"UTF-8"), true, null);
+                lastUrl = '/' + baseModeStr(baseMode)+"/p" + page++ + searchUrl + URLEncoder.encode(query,"UTF-8");
+                Response response = client.mget(lastUrl, true, null);
+                if(response == null || response.body() == null) {
+                    page--;
+                    return 1;
+                }
                 String body = response.body().string();
                 if(body.contains("Connect Error: Connection timed out")){
                     //adblock : try again
@@ -89,9 +94,10 @@ public class Search {
 
                 Elements titles = d.select("div.list-item");
 
-                if(response.code()>=400){
-                    //has error
-                    return 1;
+                if(response.code()>=400 || (titles.size() < 1 && looksLikeCaptcha(body))){
+                    response.close();
+                    page--;
+                    return 2;
                 } else if (titles.size() < 1)
                     last = true;
 
@@ -144,9 +150,25 @@ public class Search {
         return result;
     }
 
+    public String getLastUrl() {
+        return lastUrl;
+    }
+
+    private boolean looksLikeCaptcha(String body) {
+        if(body == null)
+            return false;
+        String lower = body.toLowerCase();
+        return lower.contains("<title>just a moment")
+                || lower.contains("cf_chl_opt")
+                || lower.contains("__cf_chl_rt_tk")
+                || lower.contains("enable javascript and cookies to continue")
+                || (lower.contains("captcha") && !lower.contains("list-item"));
+    }
+
     private final String query;
     Boolean last = false;
     int mode;
     int page = 1;
+    private String lastUrl;
     private ArrayList<Title> result;
 }

@@ -43,17 +43,14 @@ public class MainPage {
                 fetch(client);
                 return;
             }
-            if(looksLikeCaptcha(body)){
-                needsCaptcha = true;
-                r.close();
-                return;
-            }
             Document d = Jsoup.parse(body);
             r.close();
             Elements galleries = d.select("div.miso-post-gallery");
             Elements postLists = d.select("div.miso-post-list");
-            if(galleries.size() == 0 || postLists.size() == 0)
+            if(galleries.size() == 0 || postLists.size() == 0) {
+                needsCaptcha = looksLikeCaptcha(body);
                 return;
+            }
 
             //recent
             int id;
@@ -175,11 +172,11 @@ public class MainPage {
         if(body == null)
             return false;
         String lower = body.toLowerCase();
-        return lower.contains("cf_clearance")
-                || lower.contains("cf-chl")
-                || lower.contains("challenge-platform")
-                || lower.contains("just a moment")
-                || lower.contains("captcha");
+        return lower.contains("<title>just a moment")
+                || lower.contains("cf_chl_opt")
+                || lower.contains("__cf_chl_rt_tk")
+                || lower.contains("enable javascript and cookies to continue")
+                || (lower.contains("captcha") && !lower.contains("miso-post-gallery"));
     }
 
     public boolean needsCaptcha() {
