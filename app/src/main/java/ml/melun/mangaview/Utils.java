@@ -278,7 +278,7 @@ public class Utils {
 
     public static void showCaptchaPopup(String url, Context context, int code, Exception e, boolean force_close, Fragment fragment, Preference p){
         if(context != null) {
-            boolean useNumericCaptcha = (url == null || url.length() == 0);
+            boolean useNumericCaptcha = (url == null || url.length() == 0 || url.contains("captcha.php"));
             if (!checkConnection(context)) {
                 //no internet
                 //showErrorPopup(context, "네트워크 연결이 없습니다.", e, force_close);
