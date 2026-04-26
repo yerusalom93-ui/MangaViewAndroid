@@ -24,6 +24,7 @@ import android.widget.TextView;
 
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.Locale;
 import java.util.Map;
 
 import ml.melun.mangaview.R;
@@ -72,9 +73,16 @@ public class CaptchaActivity extends AppCompatActivity {
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
         CookieManager cookiem = CookieManager.getInstance();
-        cookiem.removeAllCookies(null);
+        cookiem.setAcceptCookie(true);
+
+        // Keep the current app session in WebView so CAPTCHA verification is performed
+        // on the same server session.
+        if (httpClient.getCookie("PHPSESSID") != null) {
+            cookiem.setCookie(purl, "PHPSESSID=" + httpClient.getCookie("PHPSESSID") + "; path=/");
+        }
 
         WebViewClient client = new WebViewClient() {
+            private boolean captchaDone = false;
 
             @Override
             public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
@@ -90,28 +98,34 @@ public class CaptchaActivity extends AppCompatActivity {
             }
 
             @Override
-            public void onLoadResource(WebView view, String url) {
+            public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
 
-                if(url.contains("bootstrap") || url.contains("jquery")){
-                    // read cookies and finish
-                    try {
-                        String cookieStr = cookiem.getCookie(purl);
-                        if(cookieStr != null && cookieStr.length() >0) {
-                            for (String s : cookieStr.split("; ")) {
-                                String k = s.substring(0, s.indexOf("="));
-                                String v = s.substring(s.indexOf("=") + 1);
-                                httpClient.setCookie(k, v);
-                            }
+                if (captchaDone || url == null) return;
+                String lowerUrl = url.toLowerCase(Locale.ROOT);
+                // CAPTCHA page itself can load bootstrap/jquery resources, so do not
+                // close on resource load; close only after navigating away from challenge.
+                if (lowerUrl.contains("captcha")) return;
+
+                // read cookies and finish
+                try {
+                    String cookieStr = cookiem.getCookie(purl);
+                    if (cookieStr != null && cookieStr.length() > 0) {
+                        for (String s : cookieStr.split("; ")) {
+                            int idx = s.indexOf("=");
+                            if (idx <= 0 || idx >= s.length() - 1) continue;
+                            String k = s.substring(0, idx);
+                            String v = s.substring(idx + 1);
+                            httpClient.setCookie(k, v);
                         }
-                        Intent resultIntent = new Intent();
-                        setResult(RESULT_CAPTCHA, resultIntent);
-                        finish();
-                    }catch (Exception e){
-                        Utils.showErrorPopup(context, "인증 도중 오류가 발생했습니다. 네트워크 연결 상태를 확인해주세요.", e, true);
                     }
-
+                    captchaDone = true;
+                    Intent resultIntent = new Intent();
+                    setResult(RESULT_CAPTCHA, resultIntent);
+                    finish();
+                } catch (Exception e) {
+                    Utils.showErrorPopup(context, "인증 도중 오류가 발생했습니다. 네트워크 연결 상태를 확인해주세요.", e, true);
                 }
-                super.onLoadResource(view, url);
             }
         };
 
