@@ -29,6 +29,7 @@ public class MainWebtoonAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
     LinearLayoutManager manager;
     Context context;
     boolean dark;
+    boolean fetching = false;
     LayoutInflater inflater;
     List<Ranking<?>> dataSet;
     MainAdapter.onItemClick listener;
@@ -59,6 +60,8 @@ public class MainWebtoonAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
     }
 
     public void fetch(){
+        if(fetching)
+            return;
         new Fetcher().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
     }
 
@@ -190,6 +193,7 @@ public class MainWebtoonAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
         @Override
         protected void onPreExecute() {
             super.onPreExecute();
+            fetching = true;
         }
 
         @Override
@@ -200,6 +204,7 @@ public class MainWebtoonAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
         @Override
         protected void onPostExecute(MainPageWebtoon main) {
             super.onPostExecute(main);
+            fetching = false;
             //update adapters?
             dataSet = main.getDataSet();
             if(dataSet == null)

@@ -37,6 +37,7 @@ public class MainAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     MainUpdatedAdapter uadapter;
     onItemClick mainClickListener;
     boolean dark, loaded = false;
+    boolean fetching = false;
 
     List<Object> data;
 
@@ -95,6 +96,8 @@ public class MainAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     }
 
     public void fetch(){
+        if(fetching)
+            return;
         //fetch main page data
         uadapter.setLoad();
         new MainFetcher().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
@@ -387,6 +390,7 @@ public class MainAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         @Override
         protected void onPreExecute() {
             super.onPreExecute();
+            fetching = true;
         }
 
         @Override
@@ -402,6 +406,7 @@ public class MainAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         @Override
         protected void onPostExecute(MainPage u) {
             super.onPostExecute(u);
+            fetching = false;
             //update adapters?
             if(u.getRecent().size() == 0){
                 return;

@@ -31,6 +31,7 @@ public class UrlUpdater extends AsyncTask<Void, Void, Boolean> {
 
     String result;
     String fetchUrl;
+    String originalUrl;
     boolean silent = false;
     Context c;
     UrlUpdaterCallback callback;
@@ -55,6 +56,7 @@ public class UrlUpdater extends AsyncTask<Void, Void, Boolean> {
     }
 
     protected Boolean doInBackground(Void... params) {
+        originalUrl = p.getUrl();
         return fetch();
     }
 
@@ -254,7 +256,7 @@ public class UrlUpdater extends AsyncTask<Void, Void, Boolean> {
             p.setUrl(result);
             if(!silent)
                 Toast.makeText(c, "Site URL set: " + result, Toast.LENGTH_SHORT).show();
-            if(callback!=null)
+            if(callback!=null && hasUrlChanged())
                 callback.callback(true);
         }else{
             if(!silent)
@@ -266,5 +268,11 @@ public class UrlUpdater extends AsyncTask<Void, Void, Boolean> {
 
     public interface UrlUpdaterCallback{
         void callback(boolean success);
+    }
+
+    private boolean hasUrlChanged() {
+        String oldUrl = normalizeInputUrl(originalUrl);
+        String newUrl = normalizeInputUrl(result);
+        return oldUrl == null || oldUrl.length() == 0 || !oldUrl.equals(newUrl);
     }
 }
