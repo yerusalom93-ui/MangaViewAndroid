@@ -35,6 +35,7 @@ public class UrlUpdater extends AsyncTask<Void, Void, Boolean> {
     boolean silent = false;
     Context c;
     UrlUpdaterCallback callback;
+    OkHttpClient fastClient;
     public static volatile boolean running = false;
 
     public UrlUpdater(Context c){
@@ -98,19 +99,13 @@ public class UrlUpdater extends AsyncTask<Void, Void, Boolean> {
             return httpClient.get(normalizeInputUrl(url), headers);
 
         try {
-            OkHttpClient fastClient = httpClient.client.newBuilder()
-                    .followRedirects(false)
-                    .followSslRedirects(false)
-                    .connectTimeout(FAST_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-                    .readTimeout(FAST_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-                    .build();
             Request.Builder builder = new Request.Builder()
                     .url(normalizeInputUrl(url))
                     .get();
             for(String k : headers.keySet()){
                 builder.addHeader(k, headers.get(k));
             }
-            return fastClient.newCall(builder.build()).execute();
+            return getFastClient().newCall(builder.build()).execute();
         } catch (Exception e){
             if(!fast)
                 e.printStackTrace();
@@ -172,10 +167,11 @@ public class UrlUpdater extends AsyncTask<Void, Void, Boolean> {
                 String url = normalizeUrl(location);
                 return new CheckResult(url, extractNumber(url, fallbackNumber), true);
             }
-            if(!isUsableStatus(code))
+            if(!isUsableStatus(code) && code != 403 && code != 503)
                 return new CheckResult(candidate, fallbackNumber, false);
             String body = response.body().string();
-            boolean usable = isManatokiMainPage(body) || looksLikeCloudflareChallenge(body);
+            boolean usable = isManatokiMainPage(body)
+                    || ((isUsableStatus(code) || code == 403 || code == 503) && looksLikeCloudflareChallenge(body));
             return new CheckResult(candidate, fallbackNumber, usable);
         } catch (Exception e) {
             return new CheckResult(candidate, fallbackNumber, false);
@@ -274,5 +270,17 @@ public class UrlUpdater extends AsyncTask<Void, Void, Boolean> {
         String oldUrl = normalizeInputUrl(originalUrl);
         String newUrl = normalizeInputUrl(result);
         return oldUrl == null || oldUrl.length() == 0 || !oldUrl.equals(newUrl);
+    }
+
+    private OkHttpClient getFastClient() {
+        if(fastClient == null) {
+            fastClient = httpClient.client.newBuilder()
+                    .followRedirects(false)
+                    .followSslRedirects(false)
+                    .connectTimeout(FAST_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                    .readTimeout(FAST_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                    .build();
+        }
+        return fastClient;
     }
 }

@@ -412,13 +412,7 @@ public class MainAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 return;
             }
             uadapter.setData(u.getRecent());
-
-            for(int i=data.size()-1; i>=0; i--){
-                if(data.get(i) instanceof NoResultManga) {
-                    data.remove(i);
-                    notifyItemRemoved(i);
-                }
-            }
+            clearDynamicItems();
 
             int i = data.indexOf(weekh);
             if(i>-1) {
@@ -473,6 +467,16 @@ public class MainAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                         notifyItemInserted(i);
                     }
                 }
+            }
+        }
+    }
+
+    private void clearDynamicItems() {
+        for(int i=data.size()-1; i>=0; i--){
+            Object item = data.get(i);
+            if(item instanceof Manga || item instanceof Title) {
+                data.remove(i);
+                notifyItemRemoved(i);
             }
         }
     }
