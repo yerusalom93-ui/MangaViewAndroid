@@ -5,7 +5,13 @@ import android.os.AsyncTask;
 import android.widget.Toast;
 
 import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -18,8 +24,9 @@ import static ml.melun.mangaview.MainApplication.httpClient;
 import static ml.melun.mangaview.MainApplication.p;
 
 public class UrlUpdater extends AsyncTask<Void, Void, Boolean> {
-    private static final int MAX_INCREMENT_SCAN = 50;
-    private static final int MAX_CONSECUTIVE_MISSES_AFTER_NEWER = 2;
+    private static final int MAX_INCREMENT_SCAN = 20;
+    private static final int PARALLEL_SCAN_SIZE = 6;
+    private static final int FAST_TIMEOUT_SECONDS = 1;
     private static final Pattern MANATOKI_NUMBERED_URL = Pattern.compile("^(https?://manatoki)(\\d+)(\\.net)(/.*)?$");
 
     String result;
@@ -92,8 +99,8 @@ public class UrlUpdater extends AsyncTask<Void, Void, Boolean> {
             OkHttpClient fastClient = httpClient.client.newBuilder()
                     .followRedirects(false)
                     .followSslRedirects(false)
-                    .connectTimeout(2, TimeUnit.SECONDS)
-                    .readTimeout(2, TimeUnit.SECONDS)
+                    .connectTimeout(FAST_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                    .readTimeout(FAST_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                     .build();
             Request.Builder builder = new Request.Builder()
                     .url(normalizeInputUrl(url))
@@ -118,58 +125,79 @@ public class UrlUpdater extends AsyncTask<Void, Void, Boolean> {
     }
 
     private String findLatestNumberedManatoki(String prefix, String suffix, int seedNumber) {
-        String latest = null;
-        int latestNumber = -1;
-        String firstReachable = null;
-        int misses = 0;
-        for(int number = seedNumber; number <= seedNumber + MAX_INCREMENT_SCAN; number++){
-            String candidate = prefix + number + suffix;
-            Response response = requestUrl(candidate, true);
-            if(response == null){
-                if(++misses >= MAX_CONSECUTIVE_MISSES_AFTER_NEWER)
-                    break;
-                continue;
+        String seedUrl = prefix + seedNumber + suffix;
+        CheckResult seed = checkCandidate(seedUrl, seedNumber);
+        if(seed.usable)
+            return seed.url;
+
+        ExecutorService executor = Executors.newFixedThreadPool(PARALLEL_SCAN_SIZE);
+        List<Future<CheckResult>> futures = new ArrayList<>();
+        try {
+            for(int number = seedNumber + 1; number <= seedNumber + MAX_INCREMENT_SCAN; number++){
+                final int candidateNumber = number;
+                final String candidate = prefix + number + suffix;
+                futures.add(executor.submit(new Callable<CheckResult>() {
+                    @Override
+                    public CheckResult call() {
+                        return checkCandidate(candidate, candidateNumber);
+                    }
+                }));
             }
 
-            int code = response.code();
-            String location = response.header("Location");
-
-            if(location != null && location.contains("manatoki")){
-                response.close();
-                latest = normalizeUrl(location);
-                latestNumber = extractNumber(latest, number);
-                misses = 0;
-                continue;
+            CheckResult best = null;
+            for(Future<CheckResult> future : futures){
+                CheckResult result = future.get();
+                if(result.usable && (best == null || result.number > best.number))
+                    best = result;
             }
-
-            if(isUsableStatus(code) && firstReachable == null)
-                firstReachable = candidate;
-
-            if(isUsableStatus(code) && isManatokiMainPage(response)){
-                latest = candidate;
-                latestNumber = number;
-                misses = 0;
-            }else{
-                response.close();
-                if(++misses >= MAX_CONSECUTIVE_MISSES_AFTER_NEWER)
-                    break;
-            }
+            return best == null ? null : best.url;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        } finally {
+            executor.shutdownNow();
         }
-        return latest == null ? firstReachable : latest;
     }
 
-    private boolean isManatokiMainPage(Response response) {
+    private CheckResult checkCandidate(String candidate, int fallbackNumber) {
+        Response response = requestUrl(candidate, true);
+        if(response == null)
+            return new CheckResult(candidate, fallbackNumber, false);
         try {
+            int code = response.code();
+            String location = response.header("Location");
+            if(location != null && location.contains("manatoki")){
+                String url = normalizeUrl(location);
+                return new CheckResult(url, extractNumber(url, fallbackNumber), true);
+            }
+            if(!isUsableStatus(code))
+                return new CheckResult(candidate, fallbackNumber, false);
             String body = response.body().string();
-            return body.contains("miso-post-gallery")
-                    || body.contains("miso-post-list")
-                    || body.contains("/comic/")
-                    || body.contains("/webtoon/");
+            boolean usable = isManatokiMainPage(body) || looksLikeCloudflareChallenge(body);
+            return new CheckResult(candidate, fallbackNumber, usable);
         } catch (Exception e) {
-            return false;
+            return new CheckResult(candidate, fallbackNumber, false);
         } finally {
             response.close();
         }
+    }
+
+    private boolean isManatokiMainPage(String body) {
+        return body != null && (body.contains("miso-post-gallery")
+                || body.contains("miso-post-list")
+                || body.contains("/comic/")
+                || body.contains("/webtoon/"));
+    }
+
+    private boolean looksLikeCloudflareChallenge(String body) {
+        if(body == null)
+            return false;
+        String lower = body.toLowerCase();
+        return lower.contains("<title>just a moment")
+                || lower.contains("cf_chl_opt")
+                || lower.contains("__cf_chl_rt_tk")
+                || lower.contains("enable javascript and cookies to continue")
+                || lower.contains("performing security verification");
     }
 
     private boolean isUsableStatus(int code) {
@@ -206,6 +234,18 @@ public class UrlUpdater extends AsyncTask<Void, Void, Boolean> {
         if(matcher.matches())
             return Integer.parseInt(matcher.group(2));
         return fallback;
+    }
+
+    private static class CheckResult {
+        String url;
+        int number;
+        boolean usable;
+
+        CheckResult(String url, int number, boolean usable) {
+            this.url = url;
+            this.number = number;
+            this.usable = usable;
+        }
     }
 
     protected void onPostExecute(Boolean r) {
