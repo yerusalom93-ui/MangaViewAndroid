@@ -81,6 +81,7 @@ public class MainActivity extends AppCompatActivity
         implements NavigationView.OnNavigationItemSelectedListener, MainActivityCallback {
 
     public static int PERMISSION_CODE = 132322;
+    private static final long AUTO_URL_CHECK_INTERVAL = 30 * 60 * 1000;
     int startTab;
     int currentTab = -1;
     private Context context;
@@ -231,6 +232,18 @@ public class MainActivity extends AppCompatActivity
        }
     }
 
+    private boolean shouldRunAutoUrlUpdate(String updateSeed) {
+        if(UrlUpdater.running)
+            return false;
+        if(updateSeed == null || updateSeed.length() == 0)
+            return false;
+        String currentUrl = p.getUrl();
+        if(currentUrl == null || currentUrl.length() == 0)
+            return true;
+        long lastCheck = p.getSharedPref().getLong("lastAutoUrlCheck", 0);
+        return System.currentTimeMillis() - lastCheck > AUTO_URL_CHECK_INTERVAL;
+    }
+
     private void activityInit(Bundle savedInstanceState){
         p.check2();
         setContentView(R.layout.activity_main);
@@ -241,7 +254,10 @@ public class MainActivity extends AppCompatActivity
             String updateSeed = p.getUrl();
             if(updateSeed == null || updateSeed.length() == 0)
                 updateSeed = p.getDefUrl();
-            new UrlUpdater(context, true, ((MainMain)fragments[0]).getCallback(), updateSeed).executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+            if(shouldRunAutoUrlUpdate(updateSeed)) {
+                p.getSharedPref().edit().putLong("lastAutoUrlCheck", System.currentTimeMillis()).apply();
+                new UrlUpdater(context, true, ((MainMain)fragments[0]).getCallback(), updateSeed).executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+            }
         }
 
         toolbar = (Toolbar) findViewById(R.id.toolbar);

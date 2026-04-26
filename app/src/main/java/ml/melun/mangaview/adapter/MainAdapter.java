@@ -416,14 +416,12 @@ public class MainAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
             int i = data.indexOf(weekh);
             if(i>-1) {
-                if (u.getWeeklyRanking().size() == 0 && !(data.get(i+1) instanceof NoResultManga)){
+                if (u.getWeeklyRanking().size() == 0){
                     data.add(++i, new NoResultManga());
-                    notifyItemInserted(i);
                 }
                 else {
                     for (MainPage.RankingManga m : u.getWeeklyRanking()) {
                         data.add(++i, m);
-                        notifyItemInserted(i);
                     }
                 }
             }
@@ -432,12 +430,10 @@ public class MainAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             if(i>-1) {
                 if (u.getRanking().size() == 0){
                     data.add(++i, new NoResultManga());
-                    notifyItemInserted(i);
                 }
                 else {
                     for (MainPage.RankingTitle t : u.getRanking()) {
                         data.add(++i, t);
-                        notifyItemInserted(i);
                     }
                 }
             }
@@ -446,12 +442,10 @@ public class MainAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             if(i>-1) {
                 if (u.getOnlineRecent().size() == 0){
                     data.add(++i, new NoResultManga());
-                    notifyItemInserted(i);
                 }
                 else {
                     for (Manga m : u.getOnlineRecent()) {
                         data.add(++i, m);
-                        notifyItemInserted(i);
                     }
                 }
             }
@@ -460,14 +454,13 @@ public class MainAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             if(i>-1){
                 if(u.getFavUpdate().size() == 0){
                     data.add(++i, new NoResultManga());
-                    notifyItemInserted(i);
                 } else{
                     for(Manga m : u.getFavUpdate()){
                         data.add(++i, m);
-                        notifyItemInserted(i);
                     }
                 }
             }
+            notifyDataSetChanged();
         }
     }
 
@@ -476,7 +469,6 @@ public class MainAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             Object item = data.get(i);
             if(item instanceof Manga || item instanceof Title) {
                 data.remove(i);
-                notifyItemRemoved(i);
             }
         }
     }
