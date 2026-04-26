@@ -390,10 +390,10 @@ public class EpisodeActivity extends AppCompatActivity {
             super.onPostExecute(res);
             if(res == LOAD_CAPTCHA){
                 //캡차 처리 팝업
-                showTokiCaptchaPopup(context, p);
+                showTokiCaptchaPopup(context, p, true, title.getUrl());
                 return;
             }else if(res == LOAD_WEB_CAPTCHA){
-                showTokiCaptchaPopup(context, p);
+                showTokiCaptchaPopup(context, p, true, title.getUrl());
                 return;
             }else if(episodes == null || episodes.size()==0){
                 showCaptchaPopup(title.getUrl(), context, p);

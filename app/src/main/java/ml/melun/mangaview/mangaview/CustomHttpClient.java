@@ -27,7 +27,7 @@ import static ml.melun.mangaview.Utils.CODE_SCOPED_STORAGE;
 public class CustomHttpClient {
     public OkHttpClient client;
     Map<String, String> cookies;
-    public String agent = "Mozilla/5.0 (Linux; Android 13; SM-G981B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Mobile Safari/537.36";
+    public String agent = "Mozilla/5.0 (Linux; Android 16; SM-S938N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Mobile Safari/537.36";
 
     public CustomHttpClient(){
         System.out.println("http client create");
@@ -215,7 +215,9 @@ public class CustomHttpClient {
         Response response = null;
         try {
             Request.Builder builder = new Request.Builder()
-                    .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.0.0 Safari/537.36")
+                    .header("User-Agent", agent)
+                    .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+                    .header("Accept-Language", "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7")
                     .url(url)
                     .post(body);
 

@@ -372,6 +372,20 @@ public class Utils {
     }
 
     public static void showTokiCaptchaPopup(Context context, Preference p, boolean restartActivity){
+        showTokiCaptchaPopup(context, p, restartActivity, p.getUrl());
+    }
+
+    private static String buildFullUrl(Preference p, String targetUrl) {
+        if(targetUrl == null || targetUrl.length() == 0)
+            return p.getUrl();
+        if(targetUrl.startsWith("http://") || targetUrl.startsWith("https://"))
+            return targetUrl;
+        if(targetUrl.startsWith("/"))
+            return p.getUrl() + targetUrl;
+        return p.getUrl() + "/" + targetUrl;
+    }
+
+    public static void showTokiCaptchaPopup(Context context, Preference p, boolean restartActivity, String targetUrl){
         AlertDialog.Builder builder;
         String title = "캡차 인증";
         if (new Preference(context).getDarkTheme())
@@ -410,29 +424,49 @@ public class Utils {
                         .into(img));
             }catch (Exception e){
                 e.printStackTrace();
+            } finally {
+                if(r != null)
+                    r.close();
             }
         }).start();
 
         builder.setTitle(title)
                 .setView(v)
                 .setPositiveButton("확인", (dialog, which) -> new Thread(() -> {
+                    String captchaAnswer = answer.getText().toString().trim();
+                    String captchaTargetUrl = buildFullUrl(p, targetUrl);
                     RequestBody requestBody = new FormBody.Builder()
-                            .addEncoded("url", p.getUrl())
-                            .addEncoded("captcha_key", answer.getText().toString())
+                            .add("url", captchaTargetUrl)
+                            .add("captcha_key", captchaAnswer)
                             .build();
                     String phpSession = httpClient.getCookie("PHPSESSID");
                     Map<String, String> headers = new HashMap<>();
                     headers.put("Cookie", "PHPSESSID=" + phpSession + ";");
-                    Response response = httpClient.post(p.getUrl() + "/bbs/captcha_check.php", requestBody, headers, true);
+                    headers.put("Referer", p.getUrl() + "/bbs/captcha.php");
+                    headers.put("Origin", p.getUrl());
+                    Response response = httpClient.post(p.getUrl() + "/bbs/captcha_check.php", requestBody, headers, false);
                     int responseCode = response == null ? 0 : response.code();
+                    String responseLocation = response == null ? "" : response.header("Location", captchaTargetUrl);
                     if(response != null)
                         response.close();
                     if(responseCode == 302) {
                         Map<String, String> cookies = new HashMap<>();
                         cookies.put("PHPSESSID", phpSession);
-                        Response follow = httpClient.mget("/?captcha_key=" + answer.getText().toString() + "&auto_login=on", false, cookies);
+                        String followUrl = responseLocation;
+                        if(!followUrl.contains("captcha_key="))
+                            followUrl += (followUrl.contains("?") ? "&" : "?") + "captcha_key=" + captchaAnswer + "&auto_login=on";
+                        Response follow = httpClient.mget(followUrl, false, cookies);
+                        int followCode = follow == null ? 0 : follow.code();
                         if(follow != null)
                             follow.close();
+                        if(followCode == 403) {
+                            ((Activity) context).runOnUiThread(() -> {
+                                Intent captchaIntent = new Intent(context, CaptchaActivity.class);
+                                captchaIntent.putExtra("url", targetUrl);
+                                ((Activity) context).startActivityForResult(captchaIntent, REQUEST_CAPTCHA);
+                            });
+                            return;
+                        }
                         ((Activity) context).runOnUiThread(() -> {
                             if(restartActivity) {
                                 ((Activity) context).finish();
@@ -440,7 +474,7 @@ public class Utils {
                             }
                         });
                     } else {
-                        ((Activity) context).runOnUiThread(() -> showTokiCaptchaPopup(context, p, restartActivity));
+                        ((Activity) context).runOnUiThread(() -> showTokiCaptchaPopup(context, p, restartActivity, targetUrl));
                     }
                 }).start())
                 .setNegativeButton("취소", (dialogInterface, i) -> {

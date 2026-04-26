@@ -20,9 +20,12 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.constraintlayout.widget.ConstraintLayout;
 
+import com.google.gson.Gson;
+
 import java.net.MalformedURLException;
 import java.net.URL;
 
+import ml.melun.mangaview.MainApplication;
 import ml.melun.mangaview.R;
 import ml.melun.mangaview.Utils;
 
@@ -37,6 +40,8 @@ public class CaptchaActivity extends AppCompatActivity {
     public static final int REQUEST_CAPTCHA = 32;
     String domain;
     String staleClearance;
+    String verificationUrl;
+    boolean finishingCaptcha = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -50,6 +55,7 @@ public class CaptchaActivity extends AppCompatActivity {
         Intent intent = getIntent();
         String path = intent.getStringExtra("url");
         String url = buildUrl(purl, path == null ? "" : path);
+        verificationUrl = url;
 
         TextView infoText = this.findViewById(R.id.infoText);
         try {
@@ -116,7 +122,7 @@ public class CaptchaActivity extends AppCompatActivity {
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
                 syncCookies(cookiem, purl);
-                finishIfVerified(cookiem, purl);
+                finishIfVerified(cookiem, purl, url);
             }
         };
 
@@ -146,12 +152,29 @@ public class CaptchaActivity extends AppCompatActivity {
         return base + path;
     }
 
-    private void finishIfVerified(CookieManager cookiem, String cookieUrl) {
+    private void finishIfVerified(CookieManager cookiem, String cookieUrl, String currentUrl) {
         String cookieStr = cookiem.getCookie(cookieUrl);
         String clearance = extractCookie(cookieStr, "cf_clearance");
         if (clearance != null && !clearance.equals(staleClearance)) {
-            finishCaptcha();
+            finishCaptchaWithPageHtml(currentUrl);
+            return;
         }
+        if (currentUrl != null && verificationUrl != null
+                && samePageWithoutQuery(currentUrl, verificationUrl)
+                && !currentUrl.contains("/bbs/captcha")) {
+            finishCaptchaWithPageHtml(currentUrl);
+        }
+    }
+
+    private boolean samePageWithoutQuery(String currentUrl, String targetUrl) {
+        return stripQuery(currentUrl).equals(stripQuery(targetUrl));
+    }
+
+    private String stripQuery(String url) {
+        int query = url.indexOf('?');
+        if (query > -1)
+            return url.substring(0, query);
+        return url;
     }
 
     private String extractCookie(String cookieStr, String name) {
@@ -171,6 +194,29 @@ public class CaptchaActivity extends AppCompatActivity {
         Intent resultIntent = new Intent();
         setResult(RESULT_CAPTCHA, resultIntent);
         finish();
+    }
+
+    private void finishCaptchaWithPageHtml(String currentUrl) {
+        if (finishingCaptcha)
+            return;
+        finishingCaptcha = true;
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT || webView == null) {
+            finishCaptcha();
+            return;
+        }
+        webView.evaluateJavascript("(function(){return document.documentElement.outerHTML;})()", value -> {
+            try {
+                String html = new Gson().fromJson(value, String.class);
+                if (html != null && currentUrl != null) {
+                    MainApplication.saveVerifiedPageHtml(currentUrl, html);
+                    if (verificationUrl != null)
+                        MainApplication.saveVerifiedPageHtml(verificationUrl, html);
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            finishCaptcha();
+        });
     }
 
     private void flushCookies(CookieManager cookiem) {

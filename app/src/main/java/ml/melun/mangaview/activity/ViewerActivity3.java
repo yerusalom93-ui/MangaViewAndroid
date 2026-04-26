@@ -386,7 +386,7 @@ public class ViewerActivity3 extends AppCompatActivity {
             super.onPostExecute(res);
             if(res == LOAD_CAPTCHA){
                 //캡차 처리 팝업
-                showTokiCaptchaPopup(context, p);
+                showTokiCaptchaPopup(context, p, true, manga.getUrl());
                 return;
             }
             reloadManga();

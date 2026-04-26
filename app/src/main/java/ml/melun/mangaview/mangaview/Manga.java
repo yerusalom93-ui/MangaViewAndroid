@@ -30,6 +30,8 @@ import android.os.Build;
 
 import androidx.documentfile.provider.DocumentFile;
 
+import ml.melun.mangaview.MainApplication;
+
     /*
     mode:
     0 = online
@@ -93,6 +95,19 @@ public class Manga {
         comments = new ArrayList<>();
         bcomments = new ArrayList<>();
         int tries = 0;
+        String cachedHtml = MainApplication.getVerifiedPageHtml(client.getUrl() + getUrl());
+        if (cachedHtml != null && cachedHtml.length() > 0 && !looksLikeCloudflareChallenge(cachedHtml)) {
+            try {
+                if (parseBody(client, cachedHtml))
+                    return LOAD_OK;
+            } catch (Exception e) {
+                e.printStackTrace();
+                imgs = new ArrayList<>();
+                eps = new ArrayList<>();
+                comments = new ArrayList<>();
+                bcomments = new ArrayList<>();
+            }
+        }
 
         while (imgs.size() == 0 && tries < 2) {
             Response r = client.mget(  baseModeStr(baseMode) + '/' + id, false, cookies);
@@ -112,96 +127,7 @@ public class Manga {
                     continue;
                 }
 
-                Document d = Jsoup.parse(body);
-
-                System.out.println(body);
-
-                //name
-                name = d.selectFirst("div.toon-title").ownText();
-
-                //temp title
-                Element navbar = d.selectFirst("div.toon-nav");
-                int tid = Integer.parseInt(navbar.select("a")
-                        .last()
-                        .attr("href")
-                        .split(baseModeStr(baseMode) + '/')[1]
-                        .split("\\?")[0]);
-
-                if (title == null) title = new Title(name, "", "", null, "", tid, baseMode);
-
-                //eps
-                for (Element e : navbar.selectFirst("select").select("option")) {
-                    String idstr = e.attr("value");
-                    if (idstr.length() > 0)
-                        eps.add(new Manga(Integer.parseInt(idstr), e.ownText(), "", baseMode));
-                }
-
-                //imgs
-                String script = d.select("div.view-padding").get(1).selectFirst("script").data();
-                StringBuilder encodedData = new StringBuilder();
-                encodedData.append('%');
-                for (String line : script.split("\n")) {
-                    if (line.contains("html_data+=")) {
-                        encodedData.append(line.substring(line.indexOf('\'') + 1, line.lastIndexOf('\'')).replaceAll("[.]", "%"));
-                    }
-                }
-                if (encodedData.lastIndexOf("%") == encodedData.length() - 1)
-                    encodedData.deleteCharAt(encodedData.length() - 1);
-                String imgdiv = URLDecoder.decode(encodedData.toString(), "UTF-8");
-
-                Document id = Jsoup.parse(imgdiv);
-                for (Element e : id.select("img")) {
-                    String style = e.attr("style");
-                    if (style.length() == 0) {
-                        boolean flag = false;
-                        for (Attribute a : e.attributes()) {
-                            if (a.getKey().contains("data")) {
-                                String img = a.getValue();
-                                if (!img.isEmpty() && !img.contains("blank") && !img.contains("loading")) {
-                                    flag = true;
-                                    if (img.startsWith("/"))
-                                        imgs.add(client.getUrl() + img);
-                                    else
-                                        imgs.add(img);
-                                }
-                            }
-                        }
-                        if (!flag) {
-                            String img = e.attr("src");
-                            if (!img.isEmpty() && !img.contains("blank") && !img.contains("loading")) {
-                                if (img.startsWith("/"))
-                                    imgs.add(client.getUrl() + img);
-                                else
-                                    imgs.add(img);
-                            }
-                        }
-                    }
-                }
-
-                //comments
-                Element commentdiv = d.selectFirst("div#viewcomment");
-
-
-                try {
-                    for (Element e : commentdiv.selectFirst("section#bo_vc").select("div.media")) {
-                        try {
-                            comments.add(parseComment(e));
-                        } catch (Exception e3) {
-                            e3.printStackTrace();
-                        }
-
-                    }
-                    for (Element e : commentdiv.selectFirst("section#bo_vcb").select("div.media")) {
-                        try {
-                            bcomments.add(parseComment(e));
-                        } catch (Exception e3) {
-                            e3.printStackTrace();
-                        }
-
-                    }
-                } catch (Exception e1) {
-                    e1.printStackTrace();
-                }
+                parseBody(client, body);
 
             } catch (Exception e2) {
                 e2.printStackTrace();
@@ -212,6 +138,114 @@ public class Manga {
             tries++;
         }
         return LOAD_OK;
+    }
+
+    private boolean parseBody(CustomHttpClient client, String body) throws Exception {
+        Document d = Jsoup.parse(body);
+
+        Element titleElement = d.selectFirst("div.toon-title");
+        if (titleElement == null)
+            return false;
+        name = titleElement.ownText();
+
+        Element navbar = d.selectFirst("div.toon-nav");
+        if (navbar != null) {
+            int tid = Integer.parseInt(navbar.select("a")
+                    .last()
+                    .attr("href")
+                    .split(baseModeStr(baseMode) + '/')[1]
+                    .split("\\?")[0]);
+
+            if (title == null) title = new Title(name, "", "", null, "", tid, baseMode);
+
+            for (Element e : navbar.selectFirst("select").select("option")) {
+                String idstr = e.attr("value");
+                if (idstr.length() > 0)
+                    eps.add(new Manga(Integer.parseInt(idstr), e.ownText(), "", baseMode));
+            }
+        }
+
+        Elements viewPaddings = d.select("div.view-padding");
+        if (viewPaddings.size() > 1 && viewPaddings.get(1).selectFirst("script") != null) {
+            String script = viewPaddings.get(1).selectFirst("script").data();
+            StringBuilder encodedData = new StringBuilder();
+            encodedData.append('%');
+            for (String line : script.split("\n")) {
+                if (line.contains("html_data+=")) {
+                    encodedData.append(line.substring(line.indexOf('\'') + 1, line.lastIndexOf('\'')).replaceAll("[.]", "%"));
+                }
+            }
+            if (encodedData.lastIndexOf("%") == encodedData.length() - 1)
+                encodedData.deleteCharAt(encodedData.length() - 1);
+            addImagesFromDocument(client, Jsoup.parse(URLDecoder.decode(encodedData.toString(), "UTF-8")));
+        }
+        if (imgs.size() == 0) {
+            addImagesFromDocument(client, d);
+        }
+
+        Element commentdiv = d.selectFirst("div#viewcomment");
+        try {
+            for (Element e : commentdiv.selectFirst("section#bo_vc").select("div.media")) {
+                try {
+                    comments.add(parseComment(e));
+                } catch (Exception e3) {
+                    e3.printStackTrace();
+                }
+
+            }
+            for (Element e : commentdiv.selectFirst("section#bo_vcb").select("div.media")) {
+                try {
+                    bcomments.add(parseComment(e));
+                } catch (Exception e3) {
+                    e3.printStackTrace();
+                }
+
+            }
+        } catch (Exception e1) {
+            e1.printStackTrace();
+        }
+        return imgs.size() > 0;
+    }
+
+    private void addImagesFromDocument(CustomHttpClient client, Document id) {
+        for (Element e : id.select("img")) {
+            String style = e.attr("style");
+            if (style.length() == 0) {
+                boolean flag = false;
+                for (Attribute a : e.attributes()) {
+                    if (a.getKey().contains("data")) {
+                        String img = a.getValue();
+                        if (isMangaImage(img)) {
+                            flag = true;
+                            addImage(client, img);
+                        }
+                    }
+                }
+                if (!flag) {
+                    String img = e.attr("src");
+                    if (isMangaImage(img)) {
+                        addImage(client, img);
+                    }
+                }
+            }
+        }
+    }
+
+    private boolean isMangaImage(String img) {
+        return !img.isEmpty()
+                && !img.contains("blank")
+                && !img.contains("loading")
+                && !img.contains("captcha")
+                && !img.contains("logo");
+    }
+
+    private void addImage(CustomHttpClient client, String img) {
+        if (img.startsWith("//"))
+            imgs.add("https:" + img);
+        else if (img.startsWith("/"))
+            imgs.add(client.getUrl() + img);
+        else
+            imgs.add(img);
     }
 
     private boolean looksLikeCloudflareChallenge(String body) {

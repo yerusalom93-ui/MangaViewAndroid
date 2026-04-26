@@ -475,11 +475,11 @@ public class ViewerActivity extends AppCompatActivity {
         protected void onPostExecute(Integer res) {
             if(res == LOAD_CAPTCHA){
                 //캡차 처리 팝업
-                showTokiCaptchaPopup(context, p);
+                showTokiCaptchaPopup(context, p, true, m.getUrl());
                 return;
             }
             if(res == LOAD_WEB_CAPTCHA){
-                showTokiCaptchaPopup(context, p);
+                showTokiCaptchaPopup(context, p, true, m.getUrl());
                 return;
             }
 

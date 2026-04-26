@@ -815,7 +815,7 @@ public class ViewerActivity2 extends AppCompatActivity {
 
             if(res == LOAD_CAPTCHA) {
                 //캡차 처리 팝업
-                showTokiCaptchaPopup(context, p);
+                showTokiCaptchaPopup(context, p, true, manga.getUrl());
                 return;
             }
 
