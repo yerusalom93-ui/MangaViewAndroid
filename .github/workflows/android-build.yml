@@ -10,6 +10,8 @@ on:
 jobs:
   build-debug-apk:
     runs-on: ubuntu-latest
+    env:
+      JAVA_TOOL_OPTIONS: -Dfile.encoding=UTF-8
 
     steps:
       - name: Checkout
@@ -25,15 +27,22 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Accept Android SDK licenses
+        run: yes | sdkmanager --licenses
+
       - name: Install Android SDK packages
         run: |
-          sdkmanager --install "platform-tools" "platforms;android-33" "build-tools;33.0.3"
+          sdkmanager --install \
+            "platform-tools" \
+            "platforms;android-33" \
+            "build-tools;30.0.3" \
+            "build-tools;33.0.2"
 
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
       - name: Build debug APK
-        run: ./gradlew :app:assembleDebug -x validateSigningDebug
+        run: ./gradlew --no-daemon :app:assembleDebug -x validateSigningDebug
 
       - name: Upload debug APK artifact
         uses: actions/upload-artifact@v4
