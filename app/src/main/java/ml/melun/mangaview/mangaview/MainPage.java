@@ -15,6 +15,7 @@ import static ml.melun.mangaview.mangaview.MTitle.base_comic;
 public class MainPage {
     List<Manga> recent, favUpdate, onlineRecent;
     List<RankingTitle> ranking;
+    boolean needsCaptcha;
 
     public List<RankingManga> getWeeklyRanking() {
         return weeklyRanking;
@@ -40,6 +41,11 @@ public class MainPage {
                 //adblock : try again
                 r.close();
                 fetch(client);
+                return;
+            }
+            if(looksLikeCaptcha(body)){
+                needsCaptcha = true;
+                r.close();
                 return;
             }
             Document d = Jsoup.parse(body);
@@ -163,6 +169,21 @@ public class MainPage {
     }
     public MainPage(CustomHttpClient client) {
         fetch(client);
+    }
+
+    private boolean looksLikeCaptcha(String body) {
+        if(body == null)
+            return false;
+        String lower = body.toLowerCase();
+        return lower.contains("cf_clearance")
+                || lower.contains("cf-chl")
+                || lower.contains("challenge-platform")
+                || lower.contains("just a moment")
+                || lower.contains("captcha");
+    }
+
+    public boolean needsCaptcha() {
+        return needsCaptcha;
     }
 
     public List<Manga> getRecent() {

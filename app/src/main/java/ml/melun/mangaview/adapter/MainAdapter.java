@@ -404,9 +404,6 @@ public class MainAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             super.onPostExecute(u);
             //update adapters?
             if(u.getRecent().size() == 0){
-                // captcha?
-                if(!UrlUpdater.running)
-                    mainClickListener.captchaCallback();
                 return;
             }
             uadapter.setData(u.getRecent());
@@ -476,4 +473,3 @@ public class MainAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     }
 
 }
-

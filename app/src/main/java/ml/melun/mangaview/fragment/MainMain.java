@@ -71,10 +71,10 @@ public class MainMain extends Fragment{
     public void initializeCallback(){
         callback = success -> {
             wait = false;
-            if(mainadapter != null && fragmentActive) {
+            if(mainadapter != null && fragmentActive && p.getBaseMode() == base_comic) {
                 mainadapter.fetch();
             }
-            if(mainWebtoonAdapter != null && fragmentActive) {
+            if(mainWebtoonAdapter != null && fragmentActive && p.getBaseMode() == base_webtoon) {
                 mainWebtoonAdapter.fetch();
             }
         };
@@ -108,9 +108,11 @@ public class MainMain extends Fragment{
                 if(tab.getPosition() == COMIC_TAB){
                     mainRecycler.setAdapter(mainadapter);
                     p.setBaseMode(base_comic);
+                    mainadapter.fetch();
                 }else if(tab.getPosition() == WEBTOON_TAB){
                     mainRecycler.setAdapter(mainWebtoonAdapter);
                     p.setBaseMode(base_webtoon);
+                    mainWebtoonAdapter.fetch();
                 }
             }
 
@@ -206,8 +208,9 @@ public class MainMain extends Fragment{
         else
             mainRecycler.setAdapter(mainWebtoonAdapter);
 
-        if(!wait) {
+        if(!wait && p.getBaseMode() == base_comic) {
             mainadapter.fetch();
+        } else if(!wait) {
             mainWebtoonAdapter.fetch();
         }
         return rootView;

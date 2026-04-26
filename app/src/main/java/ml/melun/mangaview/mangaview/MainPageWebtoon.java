@@ -15,6 +15,7 @@ import static ml.melun.mangaview.mangaview.MTitle.base_webtoon;
 
 public class MainPageWebtoon {
     String baseUrl;
+    boolean needsCaptcha;
     public static final String normalNew="일반연재 최신", adultNew="성인웹툰 최신", gayNew="BL/GL 최신", comicNew="일본만화 최신",
             normalBest="일반연재 베스트", adultBest="성인웹툰 베스트", gayBest="BL/GL 베스트", comicBest="일본만화 베스트";
     static final int nn=4,an=5,gn=6,cn=7,nb=8,ab=9,gb=10,cb=11;
@@ -30,8 +31,17 @@ public class MainPageWebtoon {
         if(r==null) return null;
         if(r.code() == 302){
             this.baseUrl = r.header("Location");
-        }else
+        }else{
+            try {
+                if(r.body() != null)
+                    needsCaptcha = looksLikeCaptcha(r.body().string());
+            } catch (Exception e) {
+                e.printStackTrace();
+            } finally {
+                r.close();
+            }
             return null;
+        }
         r.close();
         return this.baseUrl;
     }
@@ -48,6 +58,11 @@ public class MainPageWebtoon {
                 //adblock : try again
                 r.close();
                 fetch(client);
+                return;
+            }
+            if(looksLikeCaptcha(body)){
+                needsCaptcha = true;
+                r.close();
                 return;
             }
 
@@ -74,6 +89,21 @@ public class MainPageWebtoon {
 
     public List<Ranking<?>> getDataSet(){
         return this.dataSet;
+    }
+
+    private boolean looksLikeCaptcha(String body) {
+        if(body == null)
+            return false;
+        String lower = body.toLowerCase();
+        return lower.contains("cf_clearance")
+                || lower.contains("cf-chl")
+                || lower.contains("challenge-platform")
+                || lower.contains("just a moment")
+                || lower.contains("captcha");
+    }
+
+    public boolean needsCaptcha() {
+        return needsCaptcha;
     }
 
 
