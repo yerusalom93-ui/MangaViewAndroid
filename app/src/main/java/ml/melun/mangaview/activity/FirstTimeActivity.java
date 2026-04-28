@@ -11,13 +11,10 @@ import android.widget.Toast;
 
 import java.text.SimpleDateFormat;
 
-import ml.melun.mangaview.CheckInfo;
 import ml.melun.mangaview.R;
 import ml.melun.mangaview.UrlUpdater;
 import ml.melun.mangaview.mangaview.WfwfDomainResolver;
 
-import static ml.melun.mangaview.CheckInfo.COLOR_DARK;
-import static ml.melun.mangaview.MainApplication.httpClient;
 import static ml.melun.mangaview.MainApplication.p;
 import static ml.melun.mangaview.Utils.showYesNoPopup;
 import static ml.melun.mangaview.mangaview.CustomHttpClient.DEFAULT_COMIC_URL;
@@ -34,11 +31,6 @@ public class FirstTimeActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         context = this;
-
-        //check update
-        CheckInfo cinfo = new CheckInfo(context, httpClient, true);
-        cinfo.setColorMode(COLOR_DARK);
-        cinfo.update(true);
 
         setResult(RESULT_EULA_DISAGREE);
         this.overridePendingTransition(R.anim.fade_in, R.anim.fade_out);

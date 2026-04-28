@@ -2,7 +2,6 @@ package ml.melun.mangaview.activity;
 
 import android.content.Context;
 import android.content.Intent;
-import ml.melun.mangaview.task.LifecycleTask;
 import com.google.android.material.tabs.TabLayout;
 
 import androidx.annotation.NonNull;
@@ -17,9 +16,6 @@ import androidx.viewpager.widget.PagerAdapter;
 import androidx.viewpager.widget.ViewPager;
 import android.os.Bundle;
 import android.view.View;
-import android.widget.EditText;
-import android.widget.ImageButton;
-import android.widget.Toast;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -30,11 +26,8 @@ import ml.melun.mangaview.R;
 import ml.melun.mangaview.adapter.CommentsAdapter;
 import ml.melun.mangaview.fragment.CommentsTabFragment;
 import ml.melun.mangaview.mangaview.Comment;
-import ml.melun.mangaview.mangaview.Login;
 
-import static ml.melun.mangaview.MainApplication.httpClient;
 import static ml.melun.mangaview.MainApplication.p;
-import static ml.melun.mangaview.Utils.writeComment;
 
 public class CommentsActivity extends AppCompatActivity {
 
@@ -45,9 +38,6 @@ public class CommentsActivity extends AppCompatActivity {
   public CommentsAdapter adapter, badapter;
   Context context;
   TabLayout tab;
-  int id;
-  ImageButton submit;
-  EditText input;
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -79,8 +69,6 @@ public class CommentsActivity extends AppCompatActivity {
       // ((TextView)toolbar.findViewById(R.id.comments_title)).setText("댓글 ["+comments.size()+"]");
     }
 
-    id = intent.getIntExtra("id", 0);
-
     SectionsPagerAdapter mSectionsPagerAdapter =
         new SectionsPagerAdapter(getSupportFragmentManager());
 
@@ -111,22 +99,7 @@ public class CommentsActivity extends AppCompatActivity {
           }
         });
 
-    submit = this.findViewById(R.id.commentButton);
-    input = this.findViewById(R.id.comment_editText);
-    final Login login = p.getLogin();
-    if (login != null && login.isValid()) {
-      submit.setOnClickListener(
-          view -> {
-            if (input.length() > 0) {
-              submit.setEnabled(false);
-              input.setEnabled(false);
-              new submitComment(login, id, input.getText().toString(), p.getUrl())
-                  .executeOnExecutor(LifecycleTask.THREAD_POOL_EXECUTOR);
-            }
-          });
-    } else {
-      this.findViewById(R.id.comment_input).setVisibility(View.GONE);
-    }
+    this.findViewById(R.id.comment_input).setVisibility(View.GONE);
   }
 
   public class SectionsPagerAdapter extends FragmentPagerAdapter {
@@ -158,52 +131,4 @@ public class CommentsActivity extends AppCompatActivity {
     }
   }
 
-  private class submitComment extends LifecycleTask<Void, Void, Integer> {
-    Login login;
-    int id;
-    String baseUrl;
-    String content;
-
-    public submitComment(Login login, int id, String content, String baseUrl) {
-      this.login = login;
-      this.id = id;
-      this.content = content;
-      this.baseUrl = baseUrl;
-    }
-
-    @Override
-    protected void onPreExecute() {
-      super.onPreExecute();
-    }
-
-    @Override
-    protected void onPostExecute(Integer integer) {
-      super.onPostExecute(integer);
-      if (integer == 0) {
-        // success
-        // update login
-        p.setLogin(login);
-        comments.add(new Comment("나", "", "", content, 0, 0, 0));
-        adapter.notifyDataSetChanged();
-        Toast.makeText(context, "댓글 등록 성공", Toast.LENGTH_SHORT).show();
-        input.getText().clear();
-      } else {
-        Toast.makeText(context, "실패", Toast.LENGTH_SHORT).show();
-        // failed
-      }
-      submit.setEnabled(true);
-      input.setEnabled(true);
-    }
-
-    @Override
-    protected Integer doInBackground(Void... voids) {
-      if (writeComment(httpClient, login, id, content, baseUrl)) return 0;
-      else {
-        // login again and try again
-        // login.submit(httpClient);
-        if (writeComment(httpClient, login, id, content, baseUrl)) return 0;
-      }
-      return 1;
-    }
-  }
 }

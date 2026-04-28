@@ -30,7 +30,6 @@ import ml.melun.mangaview.mangaview.UpdatedList;
 
 import static ml.melun.mangaview.MainApplication.httpClient;
 import static ml.melun.mangaview.MainApplication.p;
-import static ml.melun.mangaview.Utils.REQUEST_LOGIN;
 import static ml.melun.mangaview.Utils.episodeIntent;
 import static ml.melun.mangaview.Utils.showCaptchaPopup;
 import static ml.melun.mangaview.Utils.viewerIntent;
@@ -329,11 +328,6 @@ public class TagSearchActivity extends AppCompatActivity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if(requestCode == REQUEST_LOGIN){
-            //login
-            finish();
-            startActivity(getIntent());
-        }
         if(resultCode == RESULT_CAPTCHA){
             //captcha
             finish();

@@ -12,7 +12,6 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-import ml.melun.mangaview.mangaview.Login;
 import ml.melun.mangaview.mangaview.MTitle;
 import ml.melun.mangaview.mangaview.Manga;
 import ml.melun.mangaview.mangaview.Title;
@@ -42,7 +41,6 @@ public class Preference {
     String webtoonUrl;
     boolean stretch;
     boolean leftRight;
-    Login login;
     String defUrl;
     boolean autoUrl;
     float pageControlButtonOffset;
@@ -92,7 +90,6 @@ public class Preference {
             webtoonUrl = normalizeWebtoonUrl(sharedPref.getString("webtoonUrl", WEBTOON_URL));
             stretch = sharedPref.getBoolean("stretch", false);
             leftRight = sharedPref.getBoolean("leftRight", false);
-            login = gson.fromJson(sharedPref.getString("login","{}"),new TypeToken<Login>(){}.getType());
             autoUrl = false;
             doublep = sharedPref.getBoolean("doublep", false);
             doublepReverse = sharedPref.getBoolean("doublepReverse", false);
@@ -102,10 +99,11 @@ public class Preference {
                     .putString("url", url)
                     .putString("webtoonUrl", webtoonUrl)
                     .putBoolean("autoUrl", false)
+                    .remove("login")
+                    .remove("notice")
+                    .remove("lastNoticeTime")
+                    .remove("lastUpdateTime")
                     .apply();
-//            if(login != null && login.isValid()){
-//                setSession(login.getCookie());
-//            }
         }catch(Exception e){
             e.printStackTrace();
         }
@@ -538,15 +536,6 @@ public class Preference {
 //        prefsEditor.commit();
 //    }
 
-    public void setLogin(Login login){
-        this.login = login;
-        if(login == null)
-            prefsEditor.putString("login", "{}");
-        else
-            prefsEditor.putString("login", new Gson().toJson(login));
-        prefsEditor.commit();
-    }
-
     public boolean check(){
         //returns false if needs update
         for(MTitle t: recent){
@@ -599,10 +588,6 @@ public class Preference {
         }
         writeViewerBookmark();
     }
-    public Login getLogin(){
-        return login;
-    }
-
     public JSONObject getBookmarkObject() {
         return bookmark;
     }

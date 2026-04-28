@@ -22,7 +22,6 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.ProgressBar;
-import android.widget.Toast;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -42,7 +41,6 @@ import static ml.melun.mangaview.MainApplication.httpClient;
 import static ml.melun.mangaview.MainApplication.p;
 import static ml.melun.mangaview.Utils.CODE_SCOPED_STORAGE;
 import static ml.melun.mangaview.Utils.getOfflineEpisodes;
-import static ml.melun.mangaview.Utils.requestLogin;
 import static ml.melun.mangaview.Utils.showCaptchaPopup;
 import static ml.melun.mangaview.Utils.showTokiCaptchaPopup;
 import static ml.melun.mangaview.activity.CaptchaActivity.RESULT_CAPTCHA;
@@ -302,15 +300,6 @@ public class EpisodeActivity extends AppCompatActivity {
         episodeAdapter.setClickListener(new EpisodeAdapter.ItemClickListener() {
 
             @Override
-            public void onBookmarkClick() {
-                if(mode == 0 && p.getLogin() != null && p.getLogin().isValid()) {
-                    new ToggleBookmark().executeOnExecutor(LifecycleTask.THREAD_POOL_EXECUTOR);
-                }else {
-                    Toast.makeText(context, "로그인이 필요한 기능입니다.", Toast.LENGTH_SHORT).show();
-                }
-            }
-
-            @Override
             public void onItemClick(int position, Manga selected) {
                 //add local images to manga
                 openViewer(selected,0);
@@ -348,27 +337,6 @@ public class EpisodeActivity extends AppCompatActivity {
             i.putExtra("mode",2);
             startActivity(i);
         });
-    }
-
-    private class ToggleBookmark extends LifecycleTask<Void, Void, Boolean> {
-        @Override
-        protected void onPreExecute() {
-            super.onPreExecute();
-        }
-
-        @Override
-        protected Boolean doInBackground(Void... voids) {
-            return title.toggleBookmark(httpClient, p);
-        }
-
-        @Override
-        protected void onPostExecute(Boolean success) {
-            super.onPostExecute(success);
-            episodeAdapter.toggleBookmark(success);
-            if(!success){
-                requestLogin(context, p);
-            }
-        }
     }
 
     private class getEpisodes extends LifecycleTask<Void,Void,Integer> {

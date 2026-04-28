@@ -81,14 +81,10 @@ public class Manga {
     }
 
     public int fetch(CustomHttpClient client) {
-        return fetch(client, true, null);
+        return fetch(client, null);
     }
 
     public int fetch(CustomHttpClient client, Map<String, String> cookies) {
-        return fetch(client, false, cookies);
-    }
-
-    public int fetch(CustomHttpClient client, boolean doLogin, Map<String, String> cookies) {
         if(isComicWolfSource())
             return fetchWolf(client, "/cv?toon=", "/cv?toon=");
         if(isWebtoonWolfSource())

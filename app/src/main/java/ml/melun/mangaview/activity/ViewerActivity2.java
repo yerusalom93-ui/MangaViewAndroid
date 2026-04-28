@@ -47,15 +47,12 @@ import com.bumptech.glide.request.transition.Transition;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import ml.melun.mangaview.R;
 import ml.melun.mangaview.Utils;
 import ml.melun.mangaview.adapter.CustomSpinnerAdapter;
 import ml.melun.mangaview.mangaview.Decoder;
-import ml.melun.mangaview.mangaview.Login;
 import ml.melun.mangaview.mangaview.Manga;
 import ml.melun.mangaview.mangaview.Title;
 import ml.melun.mangaview.model.PageItem;
@@ -796,15 +793,6 @@ public class ViewerActivity2 extends AppCompatActivity {
 
         protected Integer doInBackground(Void... params) {
             manga.setListener(msg -> publishProgress(msg));
-            Login login = p.getLogin();
-            Map<String, String> cookie = new HashMap<>();
-            if(login !=null) {
-                String php = p.getLogin().getCookie();
-                login.buildCookie(cookie);
-                cookie.put("last_wr_id",String.valueOf(id));
-                cookie.put("last_percent",String.valueOf(1));
-                cookie.put("last_page",String.valueOf(0));
-            }
             int res = manga.fetch(httpClient);
             if(title == null)
                 title = manga.getTitle();

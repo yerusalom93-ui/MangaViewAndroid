@@ -97,10 +97,6 @@ public class DebugActivity extends AppCompatActivity {
 
         this.findViewById(R.id.debug_eula).setOnClickListener(view -> startActivity(new Intent(context, FirstTimeActivity.class)));
 
-
-
-        this.findViewById(R.id.debug_loginTest).setOnClickListener(view -> startActivity(new Intent(context, LoginActivity.class)));
-
         this.findViewById(R.id.debug_layoutEditor).setOnClickListener(view -> startActivity(new Intent(context, LayoutEditActivity.class)));
 
         this.findViewById(R.id.debug_baseMode).setOnClickListener(view -> {

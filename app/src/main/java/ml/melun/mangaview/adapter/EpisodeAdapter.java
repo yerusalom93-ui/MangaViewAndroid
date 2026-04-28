@@ -49,10 +49,6 @@ public class EpisodeAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     boolean dark;
     boolean save;
     int mode = 0;
-    boolean login;
-
-    boolean bookmarkSubmitting = false;
-
     // data is passed into the constructor
     public EpisodeAdapter(Context context, List<Manga> data, Title title, int mode) {
         this.mInflater = LayoutInflater.from(context);
@@ -72,7 +68,6 @@ public class EpisodeAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         }
         setHasStableIds(true);
         if(mode != 0) save = false;
-        login = mode == 0 && p.getLogin() != null && p.getLogin().isValid();
     }
 
     @Override
@@ -115,8 +110,7 @@ public class EpisodeAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             else h.h_release.setText("");
             if(favorite) h.h_star_icon.setImageResource(R.drawable.ic_favorite);
             else h.h_star_icon.setImageResource(R.drawable.ic_favorite_border);
-            if(bookmarked) h.h_bookmark_icon.setImageResource(R.drawable.ic_bookmark);
-            else h.h_bookmark_icon.setImageResource(R.drawable.ic_bookmark_border);
+            h.h_bookmark.setVisibility(View.GONE);
             Glide.with(h.h_thumb).clear(h.h_thumb);
             if(!save && thumb.length() > 0) Glide.with(h.h_thumb)
                     .load(getGlideUrl(thumb, title.getBaseMode()))
@@ -152,14 +146,6 @@ public class EpisodeAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                 h.itemView.setBackgroundColor(Color.TRANSPARENT);
             }
         }
-    }
-
-    public void toggleBookmark(boolean success){
-        if(success) {
-            this.bookmarked = !this.bookmarked;
-        }
-        this.bookmarkSubmitting = false;
-        notifyItemChanged(0);
     }
 
     // total number of rows
@@ -218,18 +204,6 @@ public class EpisodeAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             h_recommend_c = itemView.findViewById(R.id.recommendText);
 
 
-            h_bookmark.setOnClickListener(v -> {
-                //set bookmark
-                if(login) {
-                    if (!bookmarkSubmitting) {
-                        mClickListener.onBookmarkClick();
-                        bookmarkSubmitting = true;
-                    }
-                }else{
-                    mClickListener.onBookmarkClick();
-                    bookmarkSubmitting = false;
-                }
-            });
             h_star.setOnClickListener(v -> mClickListener.onStarClick());
             h_first.setOnClickListener(v -> mClickListener.onFirstClick());
             h_author.setOnClickListener(v -> mClickListener.onAuthorClick());
@@ -273,6 +247,5 @@ public class EpisodeAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         void onStarClick();
         void onFirstClick();
         void onAuthorClick();
-        void onBookmarkClick();
     }
 }

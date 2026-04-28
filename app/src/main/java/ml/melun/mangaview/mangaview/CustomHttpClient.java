@@ -332,8 +332,8 @@ public class CustomHttpClient {
         }
     }
 
-    public Response mget(String url, Boolean doLogin){
-        return mget(url, doLogin, new HashMap<>());
+    public Response mget(String url, Boolean useDefaultCookies){
+        return mget(url, useDefaultCookies, new HashMap<>());
     }
     public Response mget(String url){
         return mget(url,true);
@@ -430,14 +430,11 @@ public class CustomHttpClient {
     }
 
 
-    public Response mget(String url, Boolean doLogin, Map<String, String> customCookie){
+    public Response mget(String url, Boolean useDefaultCookies, Map<String, String> customCookie){
         ensureWfwfDomain(false);
         if(customCookie==null)
             customCookie = new HashMap<>();
         url = normalizePath(url);
-//        if(doLogin && p.getLogin() != null && p.getLogin().cookie != null && p.getLogin().cookie.length()>0){
-//            customCookie.put("PHPSESSID", p.getLogin().cookie);
-//        }
         String baseUrl = getBaseUrl(url);
         Map<String, String> headers = buildHeaders(baseUrl, customCookie);
 

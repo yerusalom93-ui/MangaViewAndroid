@@ -15,13 +15,10 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import ml.melun.mangaview.ui.NpaLinearLayoutManager;
 import ml.melun.mangaview.R;
-import ml.melun.mangaview.mangaview.Login;
 import ml.melun.mangaview.mangaview.MainPage;
 import ml.melun.mangaview.mangaview.Manga;
 import ml.melun.mangaview.mangaview.Title;
@@ -393,11 +390,6 @@ public class MainAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
         @Override
         protected MainPage doInBackground(Void... params) {
-            Map<String,String> cookie = new HashMap<>();
-            Login login = p.getLogin();
-            if(login!=null && login.isValid()){
-                p.getLogin().buildCookie(cookie);
-            }
             return new MainPage(httpClient);
         }
 

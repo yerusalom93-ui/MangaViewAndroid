@@ -42,7 +42,6 @@ import android.widget.Toast;
 
 import java.io.File;
 
-import ml.melun.mangaview.CheckInfo;
 import ml.melun.mangaview.Downloader;
 import ml.melun.mangaview.Migrator;
 import ml.melun.mangaview.Preference;
@@ -484,14 +483,7 @@ public class MainActivity extends AppCompatActivity
         int id = item.getItemId();
         if (!changeFragment(getFragmentIndex(id))) {
             //don't refresh views
-            if(id==R.id.nav_update) {
-                //check update
-                new CheckInfo(context,httpClient,false).all(true);
-            }else if(id==R.id.nav_notice){
-                Intent noticesIntent = new Intent(context, NoticesActivity.class);
-                startActivity(noticesIntent);
-                return true;
-            }else if(id==R.id.nav_kakao){
+            if(id==R.id.nav_kakao){
 
                 View layout = getLayoutInflater().inflate(R.layout.content_kakao_popup, null);
                 layout.findViewById(R.id.kakao_notice).setOnClickListener(view -> startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(getResources().getString(R.string.kakao_notice)))));
@@ -514,9 +506,6 @@ public class MainActivity extends AppCompatActivity
             }else if(id==R.id.nav_donate){
                 Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse("https://junheah.github.io/donate"));
                 startActivity(browserIntent);
-            }else if(id==R.id.nav_account){
-                startActivity(new Intent(context, LoginActivity.class));
-                return true;
             }
             DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
             drawer.closeDrawer(GravityCompat.START);

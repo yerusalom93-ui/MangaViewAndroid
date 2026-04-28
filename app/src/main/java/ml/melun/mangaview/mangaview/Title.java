@@ -2,21 +2,15 @@ package ml.melun.mangaview.mangaview;
 import androidx.annotation.NonNull;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
-import org.json.JSONObject;
 import org.jsoup.*;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
-import ml.melun.mangaview.Preference;
-import okhttp3.FormBody;
-import okhttp3.RequestBody;
 import okhttp3.Response;
 
 import static ml.melun.mangaview.MainApplication.p;
@@ -246,36 +240,6 @@ public class Title extends MTitle {
         }
         return LOAD_OK;
     }
-
-    public boolean toggleBookmark(CustomHttpClient client, Preference p){
-        RequestBody requestBody = new FormBody.Builder()
-                .addEncoded("mode", bookmarked?"off":"on")
-                .addEncoded("top","0")
-                .addEncoded("js","on")
-                .build();
-
-        Map<String, String> headers = new HashMap<>();
-        headers.put("Cookie", p.getLogin().getCookie(true));
-        Response r = client.post(bookmarkLink, requestBody, headers);
-        try {
-            String body = CustomHttpClient.readBody(r);
-            r = null;
-            JSONObject obj = new JSONObject(body);
-            if(obj.getString("error").isEmpty() && !obj.getString("success").isEmpty()){
-                //success
-                bookmarked = !bookmarked;
-            }else{
-                //failed
-                return false;
-            }
-        }catch (Exception e){
-            if(r!=null) r.close();
-            e.printStackTrace();
-            return false;
-        }
-        return true;
-    }
-
 
     public int getBookmark(){
         return bookmark;

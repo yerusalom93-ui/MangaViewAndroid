@@ -35,9 +35,7 @@ import android.widget.TextView;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import ml.melun.mangaview.R;
 import ml.melun.mangaview.interfaces.StringCallback;
@@ -46,7 +44,6 @@ import ml.melun.mangaview.Utils;
 import ml.melun.mangaview.adapter.CustomSpinnerAdapter;
 import ml.melun.mangaview.adapter.StripAdapter;
 import ml.melun.mangaview.ui.CustomSpinner;
-import ml.melun.mangaview.mangaview.Login;
 import ml.melun.mangaview.mangaview.Manga;
 import ml.melun.mangaview.mangaview.Title;
 import ml.melun.mangaview.model.PageItem;
@@ -531,12 +528,6 @@ public class ViewerActivity extends AppCompatActivity {
 
         protected Integer doInBackground(Void... params) {
             if(m.isOnline()) {
-                Login login = p.getLogin();
-                Map<String, String> cookie = new HashMap<>();
-                if (login != null) {
-                    String php = p.getLogin().getCookie();
-                    login.buildCookie(cookie);
-                }
                 return m.fetch(httpClient);
             }else{
                 return LOAD_OK;

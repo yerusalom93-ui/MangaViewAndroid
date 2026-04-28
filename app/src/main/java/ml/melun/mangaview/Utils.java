@@ -56,14 +56,12 @@ import java.util.Map;
 
 import ml.melun.mangaview.activity.CaptchaActivity;
 import ml.melun.mangaview.activity.EpisodeActivity;
-import ml.melun.mangaview.activity.LoginActivity;
 import ml.melun.mangaview.activity.ViewerActivity;
 import ml.melun.mangaview.activity.ViewerActivity2;
 import ml.melun.mangaview.activity.ViewerActivity3;
 import ml.melun.mangaview.interfaces.IntegerCallback;
 import ml.melun.mangaview.interfaces.StringCallback;
 import ml.melun.mangaview.mangaview.CustomHttpClient;
-import ml.melun.mangaview.mangaview.Login;
 import ml.melun.mangaview.mangaview.MTitle;
 import ml.melun.mangaview.mangaview.Manga;
 import ml.melun.mangaview.mangaview.Title;
@@ -628,52 +626,6 @@ public class Utils {
         return size.x;
     }
 
-    public static boolean writeComment(CustomHttpClient client, Login login, int id, String content, String baseUrl){
-        try {
-            Map<String, String> headers = new HashMap<>();
-            headers.put("Cookie", login.getCookie(true));
-//            headers.put("Content-Type","application/x-www-form-urlencoded");
-//            headers.put("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9");
-//            headers.put("Accept-Encoding", "gzip, deflate, br");
-//            headers.put("Accept-Language", "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7");
-
-
-            Response tokenResponse = client.mget("/bbs/ajax.comment_token.php?_="+ System.currentTimeMillis());
-            String token = new JSONObject(tokenResponse.body().string()).getString("token");
-            tokenResponse.close();
-//
-//            String param = "token="+token
-//                    +"&w=c&bo_table=manga&wr_id="+id
-//                    +"&comment_id=&pim=&sca=&sfl=&stx=&spt=&page=&is_good=0&wr_content="+URLEncoder.encode(content, "UTF-8");
-            RequestBody requestBody = new FormBody.Builder()
-                    .addEncoded("token",token)
-                    .addEncoded("w","c")
-                    .addEncoded("bo_table","manga")
-                    .addEncoded("wr_id",String.valueOf(id))
-                    .addEncoded("comment_id","")
-                    .addEncoded("pim","")
-                    .addEncoded("sca","")
-                    .addEncoded("sfl","")
-                    .addEncoded("stx","")
-                    .addEncoded("spt","")
-                    .addEncoded("page","")
-                    .addEncoded("is_good","0")
-                    .addEncoded("wr_content",content)
-                    .build();
-
-
-
-            Response commentResponse = client.post(baseUrl + "/bbs/write_comment_update.php", requestBody, headers);
-            int responseCode = commentResponse.code();
-            commentResponse.close();
-            if(responseCode == 302)
-                return true;
-        }catch (Exception e){
-
-        }
-        return false;
-    }
-
     public static void hideSpinnerDropDown(Spinner spinner) {
         try {
             Method method = Spinner.class.getDeclaredMethod("onDetachedFromWindow");
@@ -727,12 +679,8 @@ public class Utils {
         editor.putInt("startTab",data.getInt("startTab", 0));
         editor.putString("url",data.getString("url", ""));
         editor.putString("defUrl",data.getString("defUrl", "설정되지 않음"));
-        editor.putString("notice",data.getJSONArray("notice", new JSONArray()).toString());
-        editor.putLong("lastUpdateTime", data.getLong("lastUpdateTime", 0));
-        editor.putLong("lastNoticeTime", data.getLong("lastNoticeTime", 0));
         editor.putBoolean("leftRight", data.getBoolean("leftRight", false));
         editor.putBoolean("autoUrl", data.getBoolean("autoUrl", true));
-        editor.putString("login", data.getJSONObject("login", new JSONObject()).toString());
         editor.putFloat("pageControlButtonOffset", (float)data.getDouble("pageControlButtonOffset", -1));
         editor.commit();
     }
@@ -779,9 +727,6 @@ public class Utils {
             data.put("startTab",sharedPref.getInt("startTab", 0));
             data.put("url",sharedPref.getString("url", ""));
             data.put("defUrl",sharedPref.getString("url", "설정되지 않음"));
-            data.put("notice",new JSONArray(sharedPref.getString("notice", "[]")));
-            data.put("lastNoticeTime",sharedPref.getLong("lastNoticeTime",0));
-            data.put("lastUpdateTime",sharedPref.getLong("lastUpdateTime",0));
             data.put("autoUrl", sharedPref.getBoolean("autoUrl", true));
             data.put("prevPageKey", sharedPref.getInt("prevPageKey", -1));
             data.put("nextPageKey", sharedPref.getInt("nextPageKey", -1));
@@ -846,18 +791,6 @@ public class Utils {
         popup.setOnMenuItemClickListener(listener);
         popup.show();
     }
-
-    public final static int REQUEST_LOGIN = 232;
-
-    public static void requestLogin(Context context, Preference p){
-        //toast
-        Toast.makeText(context, "로그인 하세요",  Toast.LENGTH_SHORT).show();
-        //reset login
-        p.setLogin(null);
-        //open login activity
-        ((Activity) context).startActivityForResult(new Intent(context, LoginActivity.class), REQUEST_LOGIN);
-    }
-
 
     public static int getNumberFromString(String input){
         if(input.isEmpty()) return -1;

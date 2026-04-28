@@ -28,7 +28,6 @@ import java.util.Map;
 
 import ml.melun.mangaview.R;
 import ml.melun.mangaview.Utils;
-import ml.melun.mangaview.mangaview.Login;
 
 import static ml.melun.mangaview.MainApplication.httpClient;
 import static ml.melun.mangaview.MainApplication.p;
@@ -138,12 +137,6 @@ public class CaptchaActivity extends AppCompatActivity {
         webView.setWebViewClient(client);
 
 //        webView.setOnTouchListener((view, motionEvent) -> true);
-
-//        Login login = p.getLogin();
-//        if(login != null && login.getCookie() !=null && login.getCookie().length()>0){
-//            //session exists
-//            cookiem.setCookie(purl, login.getCookie(true));
-//        }
 
         webView.loadUrl(url);
 

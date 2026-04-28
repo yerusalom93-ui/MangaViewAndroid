@@ -16,10 +16,7 @@ import android.os.Build;
 import android.os.IBinder;
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
-import androidx.core.content.FileProvider;
 import androidx.documentfile.provider.DocumentFile;
-
-import android.widget.Toast;
 
 
 import com.google.gson.Gson;
@@ -62,16 +59,13 @@ public class Downloader extends Service {
     int maxProgress=1000;
     String notiTitle="";
     public static boolean running = false;
-    public static boolean updateDownloading = false;
     NotificationCompat.Builder notification;
     public static final String ACTION_START = "ml.melun.mangaview.action.START";
     public static final String ACTION_STOP = "ml.melun.mangaview.action.STOP";
     public static final String ACTION_QUEUE = "ml.melun.mangaview.action.QUEUE";
-    public static final String ACTION_UPDATE = "ml.melun.mangaview.action.UPDATE";
     public static final String ACTION_FORCE_STOP = "ml.melun.mangaview.action.FORCE_STOP";
     public static final String BROADCAST_STOP = "ml.melun.mangaview.broadcast.STOP";
     downloadTitle dt;
-    Download d;
     NotificationManager notificationManager;
     public static final int nid = 16848323;
     public static final String channeld = "MangaViewDL";
@@ -82,7 +76,7 @@ public class Downloader extends Service {
     int failures = 0;
 
     public static boolean isRunning(){
-        return updateDownloading || running;
+        return running;
     }
 
     @Override
@@ -136,11 +130,6 @@ public class Downloader extends Service {
                 case ACTION_FORCE_STOP:
                     dt.cancel(true);
                     break;
-                case ACTION_UPDATE:
-                    if (dt == null) dt = new downloadTitle();
-                    String url = intent.getStringExtra("url");
-                    update(url);
-                    break;
             }
         }
         return START_STICKY;
@@ -167,110 +156,6 @@ public class Downloader extends Service {
             dt.executeOnExecutor(LifecycleTask.THREAD_POOL_EXECUTOR);
         }else{
             running = true;
-        }
-    }
-
-    public void update(String url){
-        //saves to android default download dir
-        if(d==null) d = new Download();
-        if(d.getStatus() == LifecycleTask.Status.PENDING || d.getStatus() == LifecycleTask.Status.FINISHED) {
-            d = new Download();
-            d.executeOnExecutor(LifecycleTask.THREAD_POOL_EXECUTOR, url);
-        }else{
-            updateDownloading = true;
-            Toast.makeText(serviceContext, "이미 다운로드 중 입니다.", Toast.LENGTH_SHORT).show();
-        }
-    }
-
-
-
-    private class Download extends LifecycleTask<String,Integer,Integer> {
-        File downloaded;
-        int prevProgress = 0;
-        @Override
-        protected void onPreExecute() {
-            super.onPreExecute();
-            updateDownloading = true;
-            Intent intent = new Intent(serviceContext, MainActivity.class);
-            PendingIntent intentP = PendingIntent.getActivity(serviceContext, 0, intent, PendingIntent.FLAG_IMMUTABLE);
-            NotificationCompat.Builder noti = new NotificationCompat.Builder(serviceContext, channeld)
-                    .setContentIntent(intentP)
-                    .setContentTitle("업데이트 다운로드중")
-                    .setOngoing(true);
-            if (Build.VERSION.SDK_INT >= 26)
-                noti.setSmallIcon(R.drawable.ic_logo);
-            else
-                noti.setSmallIcon(R.drawable.notification_logo);
-            notificationManager.notify(nid+3, noti.build());
-        }
-
-        @Override
-        protected void onProgressUpdate(Integer... values) {
-            super.onProgressUpdate(values);
-            if(values[0] > 99) {
-                notificationManager.cancel(nid + 3);
-            }else {
-                Intent intent = new Intent(serviceContext, MainActivity.class);
-                PendingIntent intentP = PendingIntent.getActivity(serviceContext, 0, intent, PendingIntent.FLAG_IMMUTABLE);
-                NotificationCompat.Builder noti = new NotificationCompat.Builder(serviceContext, channeld)
-                        .setContentIntent(intentP)
-                        .setContentTitle("업데이트 다운로드중")
-                        .setContentText(values[0] + "%")
-                        .setOngoing(true);
-                if (Build.VERSION.SDK_INT >= 26)
-                    noti.setSmallIcon(R.drawable.ic_logo);
-                else
-                    noti.setSmallIcon(R.drawable.notification_logo);
-                notificationManager.notify(nid + 3, noti.build());
-            }
-        }
-
-
-        @Override
-        protected void onPostExecute(Integer integer) {
-            super.onPostExecute(integer);
-            downloaded.setReadable(true,false);
-            Uri fileUri = Uri.fromFile(downloaded);
-            if (Build.VERSION.SDK_INT >= 24) {
-                fileUri = FileProvider.getUriForFile(serviceContext, serviceContext.getPackageName()+".provider", downloaded);
-            }
-            Intent intent = new Intent(Intent.ACTION_VIEW);
-            intent.setDataAndType(fileUri, "application/vnd.android.package-archive");
-            intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK);
-            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-
-            PendingIntent installP = PendingIntent.getActivity(serviceContext, 0, intent, PendingIntent.FLAG_IMMUTABLE);
-            NotificationCompat.Builder  noti = new NotificationCompat.Builder(serviceContext, channeld)
-                    .setContentIntent(installP)
-                    .setContentTitle("업데이트 다운로드 완료")
-                    .setContentText("지금 설치하려면 터치")
-                    .setOngoing(false);
-            if (Build.VERSION.SDK_INT >= 26)
-                noti.setSmallIcon(R.drawable.ic_logo);
-            else
-                noti.setSmallIcon(R.drawable.notification_logo);
-            notificationManager.notify(nid+4, noti.build());
-            updateDownloading = false;
-            if(!running) stopSelf();
-        }
-
-        @Override
-
-        protected Integer doInBackground(String... urls) {
-            String url = urls[0];
-            downloaded = downloadFile(url, new File(serviceContext.getExternalFilesDir(null).getAbsolutePath(), "mangaview-update"), progress -> {
-                if(progress>prevProgress) {
-                    prevProgress = progress;
-                    publishProgress(progress);
-                }
-            });
-            return null;
-        }
-
-        Uri getFileUri(Context context, File file) {
-            return FileProvider.getUriForFile(context,
-                    context.getPackageName() + "."
-                    , file);
         }
     }
 
@@ -512,7 +397,7 @@ public class Downloader extends Service {
             super.onPostExecute(res);
             endNotification();
             running = false;
-            if(!updateDownloading) stopSelf();
+            stopSelf();
             sendBroadcast(new Intent().setAction(ACTION_STOP));
         }
 
@@ -540,7 +425,7 @@ public class Downloader extends Service {
             }
             notificationManager.cancel(nid);
             stopNotification(why);
-            if(!updateDownloading) stopSelf();
+            stopSelf();
             sendBroadcast(new Intent().setAction(BROADCAST_STOP));
         }
     }
