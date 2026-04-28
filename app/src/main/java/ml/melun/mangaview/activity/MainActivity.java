@@ -185,7 +185,6 @@ public class MainActivity extends AppCompatActivity
 
         } else if (!p.check()) {
             //popup to fix preferences
-            System.out.println("preference needs update");
             showYesNoNeutralPopup(context, "기록 업데이트 필요",
                     "저장된 데이터에서 더이상 지원되지 않는 이전 형식이 발견되었습니다. 정상적인 사용을 위해 업데이트가 필요합니다. 데이터를 업데이트 하시겠습니까?" +
                             "\n(데이터 일부가 유실될 수 있습니다. 꼭 백업을 하고 진행해 주세요)",

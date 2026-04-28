@@ -54,7 +54,6 @@ public class CustomHttpClient {
     public String agent = "Mozilla/5.0 (Linux; Android 13; SM-G981B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Mobile Safari/537.36";
 
     public CustomHttpClient(Context context){
-        System.out.println("http client create");
         this.context = context.getApplicationContext();
         this.cookies = new HashMap<>();
         this.cookieSyncAt = new HashMap<>();

@@ -48,14 +48,18 @@ public class UrlUpdater extends LifecycleTask<Void, Void, Boolean> {
                 return result != null;
             }
 
-            Response r = httpClient.get(fetchUrl, headers);
-            if (r.code() == 302) {
+            Response r = null;
+            try {
+                r = httpClient.get(fetchUrl, headers);
+                if(r == null)
+                    return false;
+                if (r.code() != 302)
+                    return false;
                 result = r.header("Location");
-                r.close();
                 return true;
-            } else{
-                r.close();
-                return false;
+            } finally {
+                if(r != null)
+                    r.close();
             }
 
         }catch (Exception e){

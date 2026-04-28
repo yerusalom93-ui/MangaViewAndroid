@@ -4,9 +4,6 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-
 import static ml.melun.mangaview.Utils.getSample;
 
 
@@ -46,7 +43,6 @@ public class Decoder {
         return input;
     }
     public Bitmap downSize(final Bitmap input, Float ratio) {
-        ByteArrayOutputStream stream = new ByteArrayOutputStream();
         Bitmap bitmap = Bitmap.createScaledBitmap(input, ((Float)(input.getWidth()*ratio)).intValue(), ((Float)(input.getHeight()*ratio)).intValue(), true);
         return bitmap;
     }
@@ -79,6 +75,8 @@ public class Decoder {
             int ty = o[0] / cx;
             Bitmap cropped = Bitmap.createBitmap(input, ox * row_w, oy * row_h, row_w, row_h);
             canvas.drawBitmap(cropped, tx * row_w, ty * row_h, null);
+            if(cropped != input)
+                cropped.recycle();
         }
         return output;
     }

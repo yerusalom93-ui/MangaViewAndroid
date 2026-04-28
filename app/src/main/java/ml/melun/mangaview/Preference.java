@@ -147,13 +147,13 @@ public class Preference {
     public void setBaseMode(int baseMode){
         this.baseMode = baseMode;
         prefsEditor.putInt("baseMode", baseMode);
-        prefsEditor.commit();
+        prefsEditor.apply();
     }
 
     public void setDefUrl(String defUrl){
         this.defUrl = normalizeComicUrl(defUrl);
         prefsEditor.putString("defUrl", this.defUrl);
-        prefsEditor.commit();
+        prefsEditor.apply();
     }
 
     public String getDefUrl() {
@@ -167,7 +167,7 @@ public class Preference {
     public void setLeftRight(boolean leftRight) {
         this.leftRight = leftRight;
         prefsEditor.putBoolean("leftRight", leftRight);
-        prefsEditor.commit();
+        prefsEditor.apply();
     }
 
     public int getViewerType() {
@@ -177,7 +177,7 @@ public class Preference {
     public void setViewerType(int viewerType) {
         this.viewerType = viewerType;
         prefsEditor.putInt("viewerType", viewerType);
-        prefsEditor.commit();
+        prefsEditor.apply();
     }
 
     public boolean getStretch() {
@@ -187,7 +187,7 @@ public class Preference {
     public void setStretch(boolean stretch) {
         this.stretch = stretch;
         prefsEditor.putBoolean("stretch", stretch);
-        prefsEditor.commit();
+        prefsEditor.apply();
     }
 
     public String getUrl() {
@@ -197,7 +197,7 @@ public class Preference {
     public void setUrl(String url) {
         this.url = normalizeComicUrl(url);
         prefsEditor.putString("url", this.url);
-        prefsEditor.commit();
+        prefsEditor.apply();
     }
 
     public String getWebtoonUrl() {
@@ -207,7 +207,7 @@ public class Preference {
     public void setWebtoonUrl(String webtoonUrl) {
         this.webtoonUrl = normalizeWebtoonUrl(webtoonUrl);
         prefsEditor.putString("webtoonUrl", this.webtoonUrl);
-        prefsEditor.commit();
+        prefsEditor.apply();
     }
 
     public int getStartTab() {
@@ -217,7 +217,7 @@ public class Preference {
     public void setStartTab(int startTab) {
         this.startTab = startTab;
         prefsEditor.putInt("startTab", startTab);
-        prefsEditor.commit();
+        prefsEditor.apply();
     }
 
     public boolean getDataSave() {
@@ -227,7 +227,7 @@ public class Preference {
     public void setDataSave(boolean dataSave) {
         this.dataSave = dataSave;
         prefsEditor.putBoolean("dataSave", dataSave);
-        prefsEditor.commit();
+        prefsEditor.apply();
     }
 
     public boolean getReverse() {
@@ -237,7 +237,7 @@ public class Preference {
     public void setReverse(boolean reverse) {
         this.reverse = reverse;
         prefsEditor.putBoolean("pageReverse", reverse);
-        prefsEditor.commit();
+        prefsEditor.apply();
     }
 
     public boolean getPageRtl() {
@@ -247,7 +247,7 @@ public class Preference {
     public void setPageRtl(boolean pageRtl) {
         this.pageRtl = pageRtl;
         prefsEditor.putBoolean("pageRtl", pageRtl);
-        prefsEditor.commit();
+        prefsEditor.apply();
     }
 
 
@@ -258,7 +258,7 @@ public class Preference {
     public void setDarkTheme(boolean darkTheme) {
         this.darkTheme = darkTheme;
         prefsEditor.putBoolean("darkTheme", darkTheme);
-        prefsEditor.commit();
+        prefsEditor.apply();
     }
 
 
@@ -270,7 +270,7 @@ public class Preference {
     public void setHomeDir(String homeDir) {
         this.homeDir = homeDir;
         prefsEditor.putString("homeDir", homeDir);
-        prefsEditor.commit();
+        prefsEditor.apply();
     }
     public void removeRecent(int position){
         MTitle title = recent.remove(position);
@@ -311,7 +311,7 @@ public class Preference {
             favorite.set(index,tmp);
             Gson gson = new Gson();
             prefsEditor.putString("favorite", gson.toJson(favorite));
-            prefsEditor.commit();
+            prefsEditor.apply();
         }
     }
 
@@ -324,7 +324,7 @@ public class Preference {
             favorite.set(index, tmp);
             Gson gson = new Gson();
             prefsEditor.putString("favorite", gson.toJson(favorite));
-            prefsEditor.commit();
+            prefsEditor.apply();
         }
     }
 
@@ -398,14 +398,14 @@ public class Preference {
     public void resetFavorites(){
         favorite = new ArrayList<>();
         prefsEditor.putString("favorite", new Gson().toJson(favorite));
-        prefsEditor.commit();
+        prefsEditor.apply();
 
     }
 
     private void writeRecent(){
         Gson gson = new Gson();
         prefsEditor.putString("recent", gson.toJson(recent));
-        prefsEditor.commit();
+        prefsEditor.apply();
     }
 
 
@@ -462,13 +462,13 @@ public class Preference {
             favorite.add(position,title);
             Gson gson = new Gson();
             prefsEditor.putString("favorite", gson.toJson(favorite));
-            prefsEditor.commit();
+            prefsEditor.apply();
             return true;
         }else{
             favorite.remove(index);
             Gson gson = new Gson();
             prefsEditor.putString("favorite", gson.toJson(favorite));
-            prefsEditor.commit();
+            prefsEditor.apply();
             return false;
         }
     }
@@ -488,7 +488,7 @@ public class Preference {
         this.favorite = (List<MTitle>)(List<?>)fav;
         Gson gson = new Gson();
         prefsEditor.putString("favorite", gson.toJson(favorite));
-        prefsEditor.commit();
+        prefsEditor.apply();
     }
 
     public void setRecents(List<MTitle> rec){
@@ -609,7 +609,7 @@ public class Preference {
     public void setAutoUrl(boolean autoUrl) {
         this.autoUrl = autoUrl;
         prefsEditor.putBoolean("autoUrl", autoUrl);
-        prefsEditor.commit();
+        prefsEditor.apply();
     }
 
 
@@ -620,7 +620,7 @@ public class Preference {
     public void setPrevPageKey(int prevPageKey) {
         this.prevPageKey = prevPageKey;
         prefsEditor.putInt("prevPageKey", prevPageKey);
-        prefsEditor.commit();
+        prefsEditor.apply();
     }
 
     public int getNextPageKey() {
@@ -630,7 +630,7 @@ public class Preference {
     public void setNextPageKey(int nextPageKey) {
         this.nextPageKey = nextPageKey;
         prefsEditor.putInt("nextPageKey", nextPageKey);
-        prefsEditor.commit();
+        prefsEditor.apply();
     }
 
     public float getPageControlButtonOffset() {
@@ -640,7 +640,7 @@ public class Preference {
     public void setPageControlButtonOffset(float pageControlButtonOffset) {
         this.pageControlButtonOffset = pageControlButtonOffset;
         prefsEditor.putFloat("pageControlButtonOffset", pageControlButtonOffset);
-        prefsEditor.commit();
+        prefsEditor.apply();
     }
 
     public boolean getDoublep(){
@@ -654,12 +654,12 @@ public class Preference {
     public void setDoublep(boolean doublep){
         this.doublep = doublep;
         prefsEditor.putBoolean("doublep", doublep);
-        prefsEditor.commit();
+        prefsEditor.apply();
     }
 
     public void setDoublepReverse(boolean doublepReverse){
         this.doublepReverse = doublepReverse;
         prefsEditor.putBoolean("doublepReverse", doublepReverse);
-        prefsEditor.commit();
+        prefsEditor.apply();
     }
 }

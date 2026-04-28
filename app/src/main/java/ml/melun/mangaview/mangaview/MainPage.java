@@ -77,7 +77,6 @@ public class MainPage {
                 id = Integer.parseInt(infos.attr("href").split("comic/")[1]);
                 name = infos.ownText();
 
-                System.out.println(name);
                 weeklyRanking.add(new RankingManga(id, name, "", base_comic, i++));
             }
                 return;

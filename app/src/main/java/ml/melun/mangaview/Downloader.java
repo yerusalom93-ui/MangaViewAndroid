@@ -26,6 +26,7 @@ import org.json.JSONArray;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
@@ -35,10 +36,7 @@ import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
-
-import javax.net.ssl.HttpsURLConnection;
 
 import ml.melun.mangaview.activity.MainActivity;
 import ml.melun.mangaview.mangaview.Decoder;
@@ -51,6 +49,9 @@ import static ml.melun.mangaview.Utils.CODE_SCOPED_STORAGE;
 import static ml.melun.mangaview.Utils.filterFolder;
 
 public class Downloader extends Service {
+    private static final int CONNECT_TIMEOUT_MS = 15000;
+    private static final int READ_TIMEOUT_MS = 30000;
+    private static final int BUFFER_SIZE = 8192;
     String homeDir;
     String baseUrl;
     ArrayList<DownloadTitle> titles;
@@ -225,10 +226,10 @@ public class Downloader extends Service {
                                         dataf.delete();
                                     Uri data = titleDir.createFile("application", "title.gson").getUri();
 
-                                    OutputStream stream = serviceContext.getContentResolver().openOutputStream(data);
-                                    stream.write(new Gson().toJson(title).getBytes());
-                                    stream.flush();
-                                    stream.close();
+                                    try (OutputStream stream = serviceContext.getContentResolver().openOutputStream(data)) {
+                                        stream.write(new Gson().toJson(title).getBytes());
+                                        stream.flush();
+                                    }
                                 } catch (Exception e) {
                                     e.printStackTrace();
                                 }
@@ -316,10 +317,10 @@ public class Downloader extends Service {
                                     File summary = new File(titleDir, "title.gson");
                                     summary.createNewFile();
 
-                                    FileOutputStream stream = new FileOutputStream(summary);
-                                    stream.write(new Gson().toJson(title).getBytes());
-                                    stream.flush();
-                                    stream.close();
+                                    try (FileOutputStream stream = new FileOutputStream(summary)) {
+                                        stream.write(new Gson().toJson(title).getBytes());
+                                        stream.flush();
+                                    }
                                 } catch (Exception e) {
                                     e.printStackTrace();
                                 }
@@ -432,50 +433,21 @@ public class Downloader extends Service {
 
     boolean downloadImage(String urlStr, File outputFile, Decoder d) {
         try {
-            URL url = new URL(urlStr);
-            if (url.getProtocol().toLowerCase(Locale.ROOT).equals("https")) {
-                HttpsURLConnection init = (HttpsURLConnection) url.openConnection();
-                init.setRequestProperty("Referer", p.getUrl());
-                int responseCode = init.getResponseCode();
-                if (responseCode >= 300 && responseCode < 400) {
-                    url = new URL(init.getHeaderField("location"));
-                } else if (responseCode >= 400) {
-                    return false;
-                }
-            } else {
-                HttpURLConnection init = (HttpURLConnection) url.openConnection();
-                init.setRequestProperty("Referer", p.getUrl());
-                int responseCode = init.getResponseCode();
-                if (responseCode >= 300 && responseCode < 400) {
-                    url = new URL(init.getHeaderField("location"));
-                } else if (responseCode >= 400) {
-                    return false;
-                }
+            URL url = resolveUrl(urlStr);
+            if (url == null) return false;
+            URLConnection connection = openDownloadConnection(url);
+            Bitmap bitmap;
+            try (InputStream in = connection.getInputStream()) {
+                bitmap = BitmapFactory.decodeStream(in);
             }
-            //String fileType = url.toString().substring(url.toString().lastIndexOf('.') + 1);
-            URLConnection connection = url.openConnection();
-            connection.setRequestProperty("Referer", p.getUrl());
-
-
-            // manatoki gives image files as document
-//            String type = connection.getHeaderField("Content-Type");
-//
-//            if(!type.startsWith("image/")) {
-//                //following file is not image
-//                return false;
-//            }
-
-            //load image as bitmap
-            InputStream in = connection.getInputStream();
-            Bitmap bitmap = BitmapFactory.decodeStream(in);
-            //decode image
+            if(bitmap == null) return false;
             bitmap = d.decode(bitmap);
-            //save image
-            OutputStream outputStream = new FileOutputStream(outputFile.getAbsolutePath() + ".jpg");
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 85, outputStream); // saving the Bitmap to a file compressed as a JPEG with 85% compression rate
-            in.close();
-            outputStream.flush(); // Not really required
-            outputStream.close(); // do not forget to close the stream
+            try (OutputStream outputStream = new FileOutputStream(outputFile.getAbsolutePath() + ".jpg")) {
+                if(!bitmap.compress(Bitmap.CompressFormat.JPEG, 85, outputStream)) return false;
+                outputStream.flush();
+            } finally {
+                bitmap.recycle();
+            }
         } catch (Exception e) {
             e.printStackTrace();
             //retry if old image server
@@ -486,47 +458,29 @@ public class Downloader extends Service {
 
     boolean downloadImage(String urlStr, DocumentFile parent, String name, Decoder d) {
         try {
-            URL url = new URL(urlStr);
-            if (url.getProtocol().toLowerCase(Locale.ROOT).equals("https")) {
-                HttpsURLConnection init = (HttpsURLConnection) url.openConnection();
-                init.setRequestProperty("Referer", p.getUrl());
-
-                int responseCode = init.getResponseCode();
-                if (responseCode >= 300 && responseCode < 400) {
-                    url = new URL(init.getHeaderField("location"));
-                } else if (responseCode >= 400) {
-                    return false;
-                }
-            } else {
-                HttpURLConnection init = (HttpURLConnection) url.openConnection();
-                init.setRequestProperty("Referer", p.getUrl());
-                int responseCode = init.getResponseCode();
-                if (responseCode >= 300 && responseCode < 400) {
-                    url = new URL(init.getHeaderField("location"));
-                } else if (responseCode >= 400) {
-                    return false;
-                }
+            URL url = resolveUrl(urlStr);
+            if (url == null) return false;
+            URLConnection connection = openDownloadConnection(url);
+            Bitmap bitmap;
+            try (InputStream in = connection.getInputStream()) {
+                bitmap = BitmapFactory.decodeStream(in);
             }
-            //String fileType = url.toString().substring(url.toString().lastIndexOf('.') + 1);
-            URLConnection connection = url.openConnection();
-            connection.setRequestProperty("Referer", p.getUrl());
-
-            //load image as bitmap
-            InputStream in = connection.getInputStream();
-            Bitmap bitmap = BitmapFactory.decodeStream(in);
-            //decode image
+            if(bitmap == null) return false;
             bitmap = d.decode(bitmap);
             //save image
             String fname = name +".jpg";
             DocumentFile outputFile = parent.findFile(fname);
             if(outputFile != null) outputFile.delete();
             outputFile = parent.createFile("image/jpeg",fname);
+            if(outputFile == null) return false;
 
-            OutputStream outputStream = serviceContext.getContentResolver().openOutputStream(outputFile.getUri());
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 85, outputStream); // saving the Bitmap to a file compressed as a JPEG with 85% compression rate
-            in.close();
-            outputStream.flush(); // Not really required
-            outputStream.close(); // do not forget to close the stream
+            try (OutputStream outputStream = serviceContext.getContentResolver().openOutputStream(outputFile.getUri())) {
+                if(outputStream == null) return false;
+                if(!bitmap.compress(Bitmap.CompressFormat.JPEG, 85, outputStream)) return false;
+                outputStream.flush();
+            } finally {
+                bitmap.recycle();
+            }
         } catch (Exception e) {
             e.printStackTrace();
             //retry if old image server
@@ -543,41 +497,27 @@ public class Downloader extends Service {
         String name = "";
         int filesize;
         try {
-            URL url = new URL(urlStr);
-            if(url.getProtocol().toLowerCase(Locale.ROOT).equals("https")) {
-                HttpsURLConnection init = (HttpsURLConnection) url.openConnection();
-                int responseCode = init.getResponseCode();
-                if (responseCode >= 300) {
-                    url = new URL(init.getHeaderField("location"));
-                }
-            }else{
-                HttpURLConnection init = (HttpURLConnection) url.openConnection();
-                int responseCode = init.getResponseCode();
-                if (responseCode >= 300) {
-                    url = new URL(init.getHeaderField("location"));
-                }
-            }
+            URL url = resolveUrl(urlStr);
+            if(url == null) return outputFile;
             String fileType = url.toString().substring(url.toString().lastIndexOf('.') + 1);
-            URLConnection connection = url.openConnection();
+            URLConnection connection = openDownloadConnection(url);
             filesize = connection.getContentLength();
 
             //load file
-            InputStream in = connection.getInputStream();
             outputFile = new File(outputFile.getAbsolutePath()+'.'+fileType);
             name = outputFile.getName();
-            OutputStream outputStream = new FileOutputStream(outputFile);
-            //save file
-            byte[] buf = new byte[1024];
-            int len = 0;
-            int cursize = 0;
-            while ((len = in.read(buf)) > 0){
-                outputStream.write(buf, 0, len);
-                cursize += len;
-                if(publisher!=null) publisher.publish((int)(((double)cursize/(double)filesize)*100d));
+            try (InputStream in = connection.getInputStream();
+                 OutputStream outputStream = new FileOutputStream(outputFile)) {
+                byte[] buf = new byte[BUFFER_SIZE];
+                int len;
+                int cursize = 0;
+                while ((len = in.read(buf)) > 0){
+                    outputStream.write(buf, 0, len);
+                    cursize += len;
+                    publishDownloadProgress(publisher, cursize, filesize);
+                }
+                outputStream.flush();
             }
-            in.close();
-            outputStream.flush(); // Not really required
-            outputStream.close(); // do not forget to close the stream
         } catch (Exception e) {
             //
             e.printStackTrace();
@@ -590,50 +530,74 @@ public class Downloader extends Service {
         DocumentFile outputFile = null;
         int filesize;
         try {
-            URL url = new URL(urlStr);
-            if(url.getProtocol().toLowerCase(Locale.ROOT).equals("https")) {
-                HttpsURLConnection init = (HttpsURLConnection) url.openConnection();
-                int responseCode = init.getResponseCode();
-                if (responseCode >= 300) {
-                    url = new URL(init.getHeaderField("location"));
-                }
-            }else{
-                HttpURLConnection init = (HttpURLConnection) url.openConnection();
-                int responseCode = init.getResponseCode();
-                if (responseCode >= 300) {
-                    url = new URL(init.getHeaderField("location"));
-                }
-            }
+            URL url = resolveUrl(urlStr);
+            if(url == null) return null;
             String fileType = url.toString().substring(url.toString().lastIndexOf('.') + 1);
-            URLConnection connection = url.openConnection();
+            URLConnection connection = openDownloadConnection(url);
             filesize = connection.getContentLength();
 
             //load file
-            InputStream in = connection.getInputStream();
             //create file
             DocumentFile pfile = parent.findFile(name+'.'+fileType);
             if(pfile != null)
                 pfile.delete();
             outputFile = parent.createFile("image", name+"."+fileType);
+            if(outputFile == null) return null;
             //open stream
-            OutputStream outputStream = serviceContext.getContentResolver().openOutputStream(outputFile.getUri());
-            //save file
-            byte[] buf = new byte[1024];
-            int len = 0;
-            int cursize = 0;
-            while ((len = in.read(buf)) > 0){
-                outputStream.write(buf, 0, len);
-                cursize += len;
-                if(publisher!=null) publisher.publish((int)(((double)cursize/(double)filesize)*100d));
+            try (InputStream in = connection.getInputStream();
+                 OutputStream outputStream = serviceContext.getContentResolver().openOutputStream(outputFile.getUri())) {
+                if(outputStream == null) return null;
+                byte[] buf = new byte[BUFFER_SIZE];
+                int len;
+                int cursize = 0;
+                while ((len = in.read(buf)) > 0){
+                    outputStream.write(buf, 0, len);
+                    cursize += len;
+                    publishDownloadProgress(publisher, cursize, filesize);
+                }
+                outputStream.flush();
             }
-            in.close();
-            outputStream.flush(); // Not really required
-            outputStream.close(); // do not forget to close the stream
         } catch (Exception e) {
             //
             e.printStackTrace();
         }
         return outputFile;
+    }
+
+    private URL resolveUrl(String urlStr) throws IOException {
+        URL url = new URL(urlStr);
+        URLConnection rawConnection = openDownloadConnection(url);
+        if(!(rawConnection instanceof HttpURLConnection))
+            return url;
+        HttpURLConnection connection = (HttpURLConnection) rawConnection;
+        try {
+            connection.setInstanceFollowRedirects(false);
+            int responseCode = connection.getResponseCode();
+            if (responseCode >= 300 && responseCode < 400) {
+                String location = connection.getHeaderField("location");
+                if(location == null || location.length() == 0)
+                    return null;
+                return new URL(url, location);
+            }
+            if (responseCode >= 400)
+                return null;
+            return url;
+        } finally {
+            connection.disconnect();
+        }
+    }
+
+    private URLConnection openDownloadConnection(URL url) throws IOException {
+        URLConnection connection = url.openConnection();
+        connection.setConnectTimeout(CONNECT_TIMEOUT_MS);
+        connection.setReadTimeout(READ_TIMEOUT_MS);
+        connection.setRequestProperty("Referer", p.getUrl());
+        return connection;
+    }
+
+    private void publishDownloadProgress(ProgressInterface publisher, int currentSize, int fileSize) {
+        if(publisher != null && fileSize > 0)
+            publisher.publish((int)(((double)currentSize/(double)fileSize)*100d));
     }
 
     public int getIndex(List<Manga> eps, int id){

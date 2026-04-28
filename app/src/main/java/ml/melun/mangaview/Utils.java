@@ -369,7 +369,6 @@ public class Utils {
         Intent captchaIntent = new Intent(context, CaptchaActivity.class);
         if(url != null && url.startsWith("/"))
             url = httpClient.getUrl(url) + url;
-        System.out.println("ppppsend " + url);
         captchaIntent.putExtra("url", url);
         if(fragment == null)
             ((Activity)context).startActivityForResult(captchaIntent, code);
@@ -431,28 +430,30 @@ public class Utils {
         EditText answer = v.findViewById(R.id.toki_captcha_answer);
 
         new Thread(() -> {
-            String cookie;
-            Response r;
             int tries = 3;
             while(tries > 0) {
-                r = httpClient.post(p.getUrl() + "/plugin/kcaptcha/kcaptcha_session.php", new FormBody.Builder().build(), new HashMap<>(),true);
-                if(r.code() == 200) {
-                    List<String> setcookie = r.headers("Set-Cookie");
-                    for (String c : setcookie) {
-                        if (c.contains("PHPSESSID=")) {
-                            cookie = c.substring(c.indexOf("=") + 1, c.indexOf(";"));
-                            httpClient.setCookie("PHPSESSID",cookie);
+                Response r = null;
+                try {
+                    r = httpClient.post(p.getUrl() + "/plugin/kcaptcha/kcaptcha_session.php", new FormBody.Builder().build(), new HashMap<>(), true);
+                    if(r != null && r.code() == 200) {
+                        List<String> setcookie = r.headers("Set-Cookie");
+                        for (String c : setcookie) {
+                            if (c.contains("PHPSESSID=")) {
+                                String cookie = c.substring(c.indexOf("=") + 1, c.indexOf(";"));
+                                httpClient.setCookie("PHPSESSID", cookie);
+                            }
                         }
+                        break;
                     }
-                    break;
-                }else {
-                    r.close();
-                    tries--;
+                } finally {
+                    if(r != null)
+                        r.close();
                 }
+                tries--;
             }
-            r = httpClient.mget("/plugin/kcaptcha/kcaptcha_image.php?t=" + currentTimeMillis(), false);
             try {
-                final byte[] b = r.body().bytes();
+                Response r = httpClient.mget("/plugin/kcaptcha/kcaptcha_image.php?t=" + currentTimeMillis(), false);
+                final byte[] b = CustomHttpClient.readBytes(r);
                 ((Activity) context).runOnUiThread(() -> Glide.with(img)
                         .load(b)
                         .into(img));
@@ -463,27 +464,30 @@ public class Utils {
 
         builder.setTitle(title)
                 .setView(v)
-                .setPositiveButton("확인", (dialog, which) -> new Thread(() -> {
+                .setPositiveButton(android.R.string.ok, (dialog, which) -> new Thread(() -> {
                     RequestBody requestBody = new FormBody.Builder()
                             .addEncoded("url", p.getUrl())
                             .addEncoded("captcha_key", answer.getText().toString())
                             .build();
                     Map<String, String> headers = new HashMap<>();
                     headers.put("cookie", "PHPSESSID=" + httpClient.getCookie("PHPSESSID") + ";");
-                    Response response = httpClient.post(p.getUrl() + "/bbs/captcha_check.php", requestBody, headers, true);
-                    System.out.println(response.code());
+                    Response response = null;
+                    try {
+                        response = httpClient.post(p.getUrl() + "/bbs/captcha_check.php", requestBody, headers, true);
+                    } finally {
+                        if(response != null)
+                            response.close();
+                    }
                     ((Activity) context).runOnUiThread(() -> {
-                        //restart activity
                         ((Activity) context).finish();
                         ((Activity) context).startActivity(((Activity) context).getIntent());
                     });
                 }).start())
-                .setNegativeButton("취소", (dialogInterface, i) -> ((Activity) context).finish())
+                .setNegativeButton(android.R.string.cancel, (dialogInterface, i) -> ((Activity) context).finish())
                 .setOnCancelListener(dialogInterface -> ((Activity) context).finish());
 
         builder.show();
     }
-
     public static GlideUrl getGlideUrl(String image){
         return getGlideUrl(image, guessImageBaseMode(image));
     }
@@ -682,7 +686,7 @@ public class Utils {
         editor.putBoolean("leftRight", data.getBoolean("leftRight", false));
         editor.putBoolean("autoUrl", data.getBoolean("autoUrl", true));
         editor.putFloat("pageControlButtonOffset", (float)data.getDouble("pageControlButtonOffset", -1));
-        editor.commit();
+        editor.apply();
     }
 
     public static boolean readPreferenceFromFile(Preference p, Context c, File f){
@@ -849,7 +853,6 @@ public class Utils {
     }
 
     public static List<File> getOfflineEpisodes(String path){
-        System.out.println(path);
         File[] episodeFiles = new File(path).listFiles(pathname -> pathname.isDirectory());
         //sort
         Arrays.sort(episodeFiles);
