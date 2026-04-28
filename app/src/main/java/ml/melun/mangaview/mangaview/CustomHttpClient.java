@@ -16,6 +16,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import javax.net.ssl.SSLContext;
@@ -38,12 +39,15 @@ public class CustomHttpClient {
     public static final String WEBTOON_URL = "https://wfwf449.com";
     private static final long WFWF_DOMAIN_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000L;
     private static final long WFWF_DOMAIN_FORCE_RETRY_INTERVAL_MS = 60 * 1000L;
+    private static final long WFWF_DOMAIN_WAIT_TIMEOUT_MS = 6 * 1000L;
     private static final long COOKIE_SYNC_INTERVAL_MS = 30 * 1000L;
     private static final int PAGE_CACHE_MAX_ENTRIES = 80;
     public OkHttpClient client;
     Map<String, String> cookies;
     Map<String, Long> cookieSyncAt;
     Map<String, CachedPage> pageCache;
+    private final Object wfwfDomainLock = new Object();
+    private DomainResolveState wfwfDomainResolveState;
     private long wfwfDomainLastForcedRetry = 0;
     private Context context;
     public String agent = "Mozilla/5.0 (Linux; Android 13; SM-G981B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Mobile Safari/537.36";
@@ -216,15 +220,17 @@ public class CustomHttpClient {
         return ensureWfwfDomain(true);
     }
 
-    private synchronized boolean ensureWfwfDomainForRetry() {
+    private boolean ensureWfwfDomainForRetry() {
         long now = System.currentTimeMillis();
-        if(now - wfwfDomainLastForcedRetry < WFWF_DOMAIN_FORCE_RETRY_INTERVAL_MS)
-            return false;
-        wfwfDomainLastForcedRetry = now;
+        synchronized (wfwfDomainLock) {
+            if(now - wfwfDomainLastForcedRetry < WFWF_DOMAIN_FORCE_RETRY_INTERVAL_MS)
+                return false;
+            wfwfDomainLastForcedRetry = now;
+        }
         return ensureWfwfDomain(true);
     }
 
-    private synchronized boolean ensureWfwfDomain(boolean force) {
+    private boolean ensureWfwfDomain(boolean force) {
         try {
             String webtoonUrl = getWebtoonUrl();
             String root = WfwfDomainResolver.toRoot(webtoonUrl);
@@ -233,26 +239,60 @@ public class CustomHttpClient {
 
             SharedPreferences pref = context.getSharedPreferences("mangaView", Context.MODE_PRIVATE);
             long now = System.currentTimeMillis();
-            long lastCheck = pref.getLong("wfwfDomainLastCheck", 0);
-            if(!force && now - lastCheck < WFWF_DOMAIN_CHECK_INTERVAL_MS)
-                return false;
+            DomainResolveState resolveState;
+            boolean shouldResolve = false;
+            synchronized (wfwfDomainLock) {
+                long lastCheck = pref.getLong("wfwfDomainLastCheck", 0);
+                if(!force && now - lastCheck < WFWF_DOMAIN_CHECK_INTERVAL_MS)
+                    return false;
+                if(wfwfDomainResolveState == null) {
+                    wfwfDomainResolveState = new DomainResolveState();
+                    pref.edit().putLong("wfwfDomainLastCheck", now).apply();
+                    shouldResolve = true;
+                }
+                resolveState = wfwfDomainResolveState;
+            }
 
-            pref.edit().putLong("wfwfDomainLastCheck", now).apply();
-            Map<String, String> headers = new HashMap<>();
-            headers.put("User-Agent", agent);
-            headers.put("Referer", root);
-            String resolved = WfwfDomainResolver.resolve(client, root, headers);
-            if(resolved == null || resolved.equals(root))
-                return false;
+            if(!shouldResolve)
+                return waitForWfwfDomainResolve(resolveState);
 
-            p.setWebtoonUrl(resolved);
-            p.setUrl(resolved + "/cm");
-            p.setDefUrl(resolved + "/cm");
-            resetCookie();
-            clearPageCache();
-            return true;
+            boolean changed = false;
+            try {
+                Map<String, String> headers = new HashMap<>();
+                headers.put("User-Agent", agent);
+                headers.put("Referer", root);
+                String resolved = WfwfDomainResolver.resolve(client, root, headers);
+                if(resolved != null && !resolved.equals(root)) {
+                    p.setWebtoonUrl(resolved);
+                    p.setUrl(resolved + "/cm");
+                    p.setDefUrl(resolved + "/cm");
+                    resetCookie();
+                    clearPageCache();
+                    changed = true;
+                }
+                return changed;
+            } finally {
+                synchronized (wfwfDomainLock) {
+                    resolveState.changed = changed;
+                    if(wfwfDomainResolveState == resolveState)
+                        wfwfDomainResolveState = null;
+                }
+                resolveState.done.countDown();
+            }
         } catch (Exception e) {
             e.printStackTrace();
+            return false;
+        }
+    }
+
+    private boolean waitForWfwfDomainResolve(DomainResolveState resolveState) {
+        if(resolveState == null)
+            return false;
+        try {
+            return resolveState.done.await(WFWF_DOMAIN_WAIT_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                    && resolveState.changed;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
             return false;
         }
     }
@@ -449,6 +489,11 @@ public class CustomHttpClient {
             this.body = body;
             this.time = time;
         }
+    }
+
+    private static class DomainResolveState {
+        final CountDownLatch done = new CountDownLatch(1);
+        volatile boolean changed = false;
     }
 
     public Response post(String url, RequestBody body, Map<String,String> headers){
