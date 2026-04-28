@@ -102,17 +102,21 @@ public class Manga {
         int tries = 0;
 
         while (imgs.size() == 0 && tries < 2) {
-            Response r = client.mget(  baseModeStr(baseMode) + '/' + id, false, cookies);
+            Response r = null;
             try {
-                if (r.code() == 302 && r.header("location").contains("captcha.php")) {
+                r = client.mget(  baseModeStr(baseMode) + '/' + id, false, cookies);
+                if(r == null)
+                    throw new Exception("Request failed");
+                String location = r.header("location");
+                if (r.code() == 302 && location != null && location.contains("captcha.php")) {
+                    r.close();
                     return LOAD_CAPTCHA;
                 }
-                String body = r.body().string();
-                r.close();
+                String body = CustomHttpClient.readBody(r);
+                r = null;
                 if (body.contains("Connect Error: Connection timed out")) {
                     //adblock : try again
-                    r.close();
-                    tries = 0;
+                    tries++;
                     continue;
                 }
 
@@ -207,9 +211,10 @@ public class Manga {
 
             } catch (Exception e2) {
                 e2.printStackTrace();
-            }
-            if (r != null) {
-                r.close();
+            } finally {
+                if (r != null) {
+                    r.close();
+                }
             }
             tries++;
         }
@@ -394,6 +399,10 @@ public class Manga {
 
     @Override
     public boolean equals(Object obj) {
+        if(this == obj)
+            return true;
+        if(!(obj instanceof Manga))
+            return false;
         return this.id == ((Manga) obj).getId();
     }
 

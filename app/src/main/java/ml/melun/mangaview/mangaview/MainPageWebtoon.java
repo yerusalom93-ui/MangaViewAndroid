@@ -6,6 +6,7 @@ import org.jsoup.nodes.Element;
 import org.jsoup.nodes.TextNode;
 import org.jsoup.select.Elements;
 
+import java.io.InterruptedIOException;
 import java.net.URLDecoder;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
@@ -69,10 +70,11 @@ public class MainPageWebtoon {
         if(baseUrl == null || baseUrl.length()==0)
             if(getUrl(client)==null)
                 return;
+        ExecutorService executor = null;
         try {
             dataSet = new ArrayList<>();
             String[][] sections = getSections();
-            ExecutorService executor = Executors.newFixedThreadPool(Math.min(4, sections.length));
+            executor = Executors.newFixedThreadPool(Math.min(4, sections.length));
             List<Future<Ranking<?>>> futures = new ArrayList<>();
             for(String[] section : sections) {
                 Callable<Ranking<?>> task = () -> parseWolfTitle(client, section[0], section[1], baseMode);
@@ -80,9 +82,11 @@ public class MainPageWebtoon {
             }
             for(Future<Ranking<?>> future : futures)
                 dataSet.add(future.get());
-            executor.shutdown();
         }catch (Exception e){
             e.printStackTrace();
+        } finally {
+            if(executor != null)
+                executor.shutdownNow();
         }
     }
 
@@ -108,6 +112,10 @@ public class MainPageWebtoon {
                 retried = true;
             }
         }catch (Exception e){
+            if(e instanceof InterruptedIOException || Thread.currentThread().isInterrupted()) {
+                Thread.currentThread().interrupt();
+                return ranking;
+            }
             e.printStackTrace();
         }
         if(retried)

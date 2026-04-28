@@ -8,6 +8,7 @@ import android.webkit.WebSettings;
 
 import org.json.JSONObject;
 
+import java.io.InterruptedIOException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -223,10 +224,31 @@ public class CustomHttpClient {
             response = this.client.newCall(request).execute();
             storeResponseCookies(response);
         } catch (Exception e){
-            e.printStackTrace();
+            if(!isInterruptedRequest(e))
+                e.printStackTrace();
             return null;
         }
         return response;
+    }
+
+    public static String readBody(Response response) throws Exception {
+        if(response == null)
+            throw new Exception("Request failed");
+        try {
+            return response.body() == null ? "" : response.body().string();
+        } finally {
+            response.close();
+        }
+    }
+
+    public static byte[] readBytes(Response response) throws Exception {
+        if(response == null)
+            throw new Exception("Request failed");
+        try {
+            return response.body() == null ? new byte[0] : response.body().bytes();
+        } finally {
+            response.close();
+        }
     }
 
     public boolean resolveWfwfDomainNow() {
@@ -332,8 +354,7 @@ public class CustomHttpClient {
         if(response == null)
             throw new Exception("Request failed: " + normalized);
         int code = response.code();
-        String body = response.body() == null ? "" : response.body().string();
-        response.close();
+        String body = readBody(response);
         if(code >= 200 && code < 400 && body.length() > 0 && looksCacheable(body)) {
             cacheKey = getBaseUrl(normalized) + normalized;
             synchronized (this) {
@@ -548,10 +569,15 @@ public class CustomHttpClient {
             response = this.client.newCall(request).execute();
             storeResponseCookies(response);
         }catch (Exception e){
-            e.printStackTrace();
+            if(!isInterruptedRequest(e))
+                e.printStackTrace();
         }
         return response;
 
+    }
+
+    private static boolean isInterruptedRequest(Exception e) {
+        return e instanceof InterruptedIOException || Thread.currentThread().isInterrupted();
     }
 
 

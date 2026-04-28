@@ -36,10 +36,9 @@ public class UpdatedList {
         if(!last) {
             try {
                 Response response= client.mget(url + page++,true,null);
-                String body = response.body().string();
+                String body = CustomHttpClient.readBody(response);
                 if(body.contains("Connect Error: Connection timed out")){
                     //adblock : try again
-                    response.close();
                     page--;
                     if(timeoutRetries++ < MAX_TIMEOUT_RETRIES)
                         fetch(client);
@@ -86,7 +85,6 @@ public class UpdatedList {
                         e.printStackTrace();
                     }
                 }
-                response.close();
                 timeoutRetries = 0;
             } catch (Exception e) {
                 e.printStackTrace();

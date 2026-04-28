@@ -27,6 +27,7 @@ import java.util.List;
 import ml.melun.mangaview.Notice;
 import ml.melun.mangaview.Preference;
 import ml.melun.mangaview.R;
+import ml.melun.mangaview.mangaview.CustomHttpClient;
 import okhttp3.Response;
 
 import static ml.melun.mangaview.MainApplication.httpClient;
@@ -118,8 +119,7 @@ public class NoticesActivity extends AppCompatActivity {
             //mget all notices
             try {
                 Response response = httpClient.get("https://raw.githubusercontent.com/junheah/MangaViewAndroid/master/etc/notices.json", new HashMap<>());
-                String rawdata = response.body().string();
-                response.close();
+                String rawdata = CustomHttpClient.readBody(response);
                 loaded = new Gson().fromJson(rawdata, new TypeToken<List<Notice>>(){}.getType());
             } catch (Exception e) {
                 e.printStackTrace();

@@ -38,6 +38,7 @@ public class Title extends MTitle {
     public static final int LOAD_OK = 0;
     public static final int LOAD_CAPTCHA = 1;
     private static final long PAGE_CACHE_TTL_MS = 2 * 60 * 1000L;
+    private static final int MAX_TIMEOUT_RETRIES = 2;
 
 
     public Title(String n, String t, String a, List<String> tg, String r, int id, int baseMode) {
@@ -78,21 +79,26 @@ public class Title extends MTitle {
         if(isWebtoonWolfSource())
             return fetchWolfEps(client);
 
-        try {
-            Response r = client.mget('/'+baseModeStr(baseMode)+'/'+ id);
-            //웹툰의 경우 캡차 있을 수 있음.
-            if(r.code() == 302 && r.header("location").contains("captcha.php")){
-                return LOAD_CAPTCHA;
-            }
-            String body = r.body().string();
-            if(body.contains("Connect Error: Connection timed out")){
-                //adblock : try again
-                r.close();
-                fetchEps(client);
-                return LOAD_OK;
-            }
-            Document d = Jsoup.parse(body);
-            Element header = d.selectFirst("div.view-title");
+        for(int attempt = 0; attempt <= MAX_TIMEOUT_RETRIES; attempt++) {
+            Response r = null;
+            try {
+                r = client.mget('/'+baseModeStr(baseMode)+'/'+ id);
+                if(r == null)
+                    throw new Exception("Request failed");
+                //웹툰의 경우 캡차 있을 수 있음.
+                String location = r.header("location");
+                if(r.code() == 302 && location != null && location.contains("captcha.php")){
+                    r.close();
+                    return LOAD_CAPTCHA;
+                }
+                String body = CustomHttpClient.readBody(r);
+                r = null;
+                if(body.contains("Connect Error: Connection timed out")){
+                    //adblock : try again
+                    continue;
+                }
+                Document d = Jsoup.parse(body);
+                Element header = d.selectFirst("div.view-title");
 
             //extra info
             try{
@@ -166,9 +172,13 @@ public class Title extends MTitle {
                     eps.add(tmp);
                 }
             }catch (Exception e){e.printStackTrace();}
-            r.close();
-        }catch(Exception e) {
-            e.printStackTrace();
+                return LOAD_OK;
+            }catch(Exception e) {
+                e.printStackTrace();
+            } finally {
+                if(r != null)
+                    r.close();
+            }
         }
         return LOAD_OK;
     }
@@ -248,13 +258,14 @@ public class Title extends MTitle {
         headers.put("Cookie", p.getLogin().getCookie(true));
         Response r = client.post(bookmarkLink, requestBody, headers);
         try {
-            JSONObject obj = new JSONObject(r.body().string());
+            String body = CustomHttpClient.readBody(r);
+            r = null;
+            JSONObject obj = new JSONObject(body);
             if(obj.getString("error").isEmpty() && !obj.getString("success").isEmpty()){
                 //success
                 bookmarked = !bookmarked;
             }else{
                 //failed
-                r.close();
                 return false;
             }
         }catch (Exception e){
@@ -262,7 +273,6 @@ public class Title extends MTitle {
             e.printStackTrace();
             return false;
         }
-        if(r!=null) r.close();
         return true;
     }
 
@@ -270,7 +280,7 @@ public class Title extends MTitle {
     public int getBookmark(){
         return bookmark;
     }
-    public int getEpsCount(){ return eps.size();}
+    public int getEpsCount(){ return eps == null ? 0 : eps.size();}
 
     public Boolean isNew() throws Exception{
         if(eps!=null){

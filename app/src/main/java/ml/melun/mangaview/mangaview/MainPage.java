@@ -13,6 +13,7 @@ import static ml.melun.mangaview.mangaview.MTitle.base_comic;
 
 
 public class MainPage {
+    private static final int MAX_TIMEOUT_RETRIES = 2;
     List<Manga> recent, favUpdate, onlineRecent;
     List<RankingTitle> ranking;
 
@@ -31,17 +32,15 @@ public class MainPage {
         favUpdate = new ArrayList<>();
         onlineRecent = new ArrayList<>();
 
-        try{
-            Response r = client.mget("",true,null);
-            String body = r.body().string();
-            if(body.contains("Connect Error: Connection timed out")){
-                //adblock : try again
-                r.close();
-                fetch(client);
-                return;
-            }
-            Document d = Jsoup.parse(body);
-            r.close();
+        for(int attempt = 0; attempt <= MAX_TIMEOUT_RETRIES; attempt++) {
+            try{
+                Response r = client.mget("",true,null);
+                String body = CustomHttpClient.readBody(r);
+                if(body.contains("Connect Error: Connection timed out")){
+                    //adblock : try again
+                    continue;
+                }
+                Document d = Jsoup.parse(body);
 
             //recent
             int id;
@@ -81,9 +80,11 @@ public class MainPage {
                 System.out.println(name);
                 weeklyRanking.add(new RankingManga(id, name, "", base_comic, i++));
             }
+                return;
 
-        }catch(Exception e){
-            e.printStackTrace();
+            }catch(Exception e){
+                e.printStackTrace();
+            }
         }
 
 /*

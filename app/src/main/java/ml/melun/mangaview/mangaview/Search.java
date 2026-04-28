@@ -73,9 +73,9 @@ public class Search {
                 }
 
                 Response response = client.mget('/'+baseModeStr(baseMode)+"/p" + page++ + searchUrl + URLEncoder.encode(query,"UTF-8"), true, null);
-                String body = response.body().string();
+                int code = response == null ? 500 : response.code();
+                String body = CustomHttpClient.readBody(response);
                 if(body.contains("Connect Error: Connection timed out")){
-                    response.close();
                     page--;
                     if(timeoutRetries++ < MAX_TIMEOUT_RETRIES)
                         return fetch(client);
@@ -87,8 +87,7 @@ public class Search {
 
                 Elements titles = d.select("div.list-item");
 
-                if(response.code()>=400){
-                    response.close();
+                if(code>=400){
                     return 1;
                 } else if (titles.size() < 1)
                     last = true;
@@ -121,7 +120,6 @@ public class Search {
                         e2.printStackTrace();
                     }
                 }
-                response.close();
                 if (result.size() < 35)
                     last = true;
 

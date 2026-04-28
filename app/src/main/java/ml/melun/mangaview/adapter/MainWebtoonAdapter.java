@@ -483,8 +483,11 @@ public class MainWebtoonAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
                         publishProgress(result);
                     }
                 }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
             } catch (Exception e) {
-                e.printStackTrace();
+                if(!isCancelled())
+                    e.printStackTrace();
             } finally {
                 executor.shutdownNow();
             }

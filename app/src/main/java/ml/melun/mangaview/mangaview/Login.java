@@ -27,11 +27,11 @@ public class Login {
     }
 
     public byte[] prepare(CustomHttpClient client, Preference p){
-        Response r;
+        Response r = null;
         int tries = 3;
         while(tries > 0) {
             r = client.post(p.getUrl() + "/plugin/kcaptcha/kcaptcha_session.php", new FormBody.Builder().build(), new HashMap<>(),false);
-            if(r.code() == 200) {
+            if(r != null && r.code() == 200) {
                 List<String> setcookie = r.headers("Set-Cookie");
                 for (String c : setcookie) {
                     if (c.contains("PHPSESSID=")) {
@@ -39,16 +39,20 @@ public class Login {
                         client.setCookie("PHPSESSID",cookie);
                     }
                 }
+                r.close();
+                r = null;
                 break;
             }else {
-                r.close();
+                if(r != null)
+                    r.close();
+                r = null;
                 tries--;
             }
         }
         currentTime = currentTimeMillis();
         r = client.mget("/plugin/kcaptcha/kcaptcha_image.php?t=" + currentTime, false);
         try {
-            return r.body().bytes();
+            return CustomHttpClient.readBytes(r);
         }catch (Exception e){
             e.printStackTrace();
             return null;
@@ -67,13 +71,17 @@ public class Login {
             headers.put("Cookie", "PHPSESSID="+cookie+";");
 
             Response response = client.post(p.getUrl() + "/bbs/login_check.php", requestBody, headers);
+            if(response == null)
+                return false;
             int responseCode = response.code();
 
             if(responseCode == 302) {
                 //follow redirect
                 Map<String, String> cookies = new HashMap<>();
                 cookies.put("PHPSESSID", cookie);
-                client.mget("/?captcha_key="+answer+"&auto_login=on",false, cookies);
+                Response redirect = client.mget("/?captcha_key="+answer+"&auto_login=on",false, cookies);
+                if(redirect != null)
+                    redirect.close();
                 response.close();
                 return true;
             }
