@@ -110,31 +110,44 @@ public class CustomHttpClient {
         persistCookies();
     }
 
-    public synchronized void syncCookiesFromWebView(String url){
+    public void syncCookiesFromWebView(String url){
         try {
             long now = System.currentTimeMillis();
-            Long lastSync = cookieSyncAt.get(url);
-            if(lastSync != null && now - lastSync < COOKIE_SYNC_INTERVAL_MS)
-                return;
-            cookieSyncAt.put(url, now);
+            synchronized (this) {
+                Long lastSync = cookieSyncAt.get(url);
+                if(lastSync != null && now - lastSync < COOKIE_SYNC_INTERVAL_MS)
+                    return;
+                cookieSyncAt.put(url, now);
+            }
 
             String cookieStr = CookieManager.getInstance().getCookie(url);
             if(cookieStr == null || cookieStr.length() == 0)
                 return;
-            boolean changed = false;
-            for(String s : cookieStr.split("; ")){
+            Map<String, String> webViewCookies = new HashMap<>();
+            for(String raw : cookieStr.split(";")){
+                String s = raw.trim();
                 int eq = s.indexOf("=");
                 if(eq <= 0)
                     continue;
                 String key = s.substring(0, eq);
                 String value = s.substring(eq + 1);
-                if(!value.equals(cookies.get(key))) {
-                    cookies.put(key, value);
-                    changed = true;
-                }
+                webViewCookies.put(key, value);
             }
-            if(changed)
-                persistCookies();
+            if(webViewCookies.size() == 0)
+                return;
+
+            synchronized (this) {
+                boolean changed = false;
+                for(String key : webViewCookies.keySet()) {
+                    String value = webViewCookies.get(key);
+                    if(!value.equals(cookies.get(key))) {
+                        cookies.put(key, value);
+                        changed = true;
+                    }
+                }
+                if(changed)
+                    persistCookies();
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }

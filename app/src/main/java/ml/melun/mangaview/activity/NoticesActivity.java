@@ -54,7 +54,7 @@ public class NoticesActivity extends AppCompatActivity {
         progress = this.findViewById(R.id.progress);
         if(actionBar!=null) actionBar.setDisplayHomeAsUpEnabled(true);
         //reset old notices sharedpref
-        sharedPref.edit().putString("notices","").commit();
+        sharedPref.edit().putString("notices","").apply();
         notices = new Gson().fromJson(sharedPref.getString("notice", "[]"), new TypeToken<List<Notice>>(){}.getType());
         //check notices for null object
         for(int i=notices.size()-1; i>=0;i--){
@@ -112,7 +112,7 @@ public class NoticesActivity extends AppCompatActivity {
         List<Notice> loaded;
         protected void onPreExecute() {
             super.onPreExecute();
-            sharedPref.edit().putLong("lastNoticeTime", System.currentTimeMillis()).commit();
+            sharedPref.edit().putLong("lastNoticeTime", System.currentTimeMillis()).apply();
         }
         protected Integer doInBackground(Void... params) {
             //mget all notices
@@ -147,7 +147,7 @@ public class NoticesActivity extends AppCompatActivity {
             }catch (Exception e){
                 //probably offline
             }
-            sharedPref.edit().putString("notice", new Gson().toJson(notices)).commit();
+            sharedPref.edit().putString("notice", new Gson().toJson(notices)).apply();
             swipe.setRefreshing(false);
             progress.setVisibility(View.GONE);
             populate();
