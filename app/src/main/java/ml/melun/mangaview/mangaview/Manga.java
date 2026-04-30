@@ -81,10 +81,14 @@ public class Manga {
     }
 
     public int fetch(CustomHttpClient client) {
-        return fetch(client, null);
+        return fetch(client, true, null);
     }
 
     public int fetch(CustomHttpClient client, Map<String, String> cookies) {
+        return fetch(client, false, cookies);
+    }
+
+    public int fetch(CustomHttpClient client, boolean doLogin, Map<String, String> cookies) {
         if(isComicWolfSource())
             return fetchWolf(client, "/cv?toon=", "/cv?toon=");
         if(isWebtoonWolfSource())
@@ -98,21 +102,17 @@ public class Manga {
         int tries = 0;
 
         while (imgs.size() == 0 && tries < 2) {
-            Response r = null;
+            Response r = client.mget(  baseModeStr(baseMode) + '/' + id, false, cookies);
             try {
-                r = client.mget(  baseModeStr(baseMode) + '/' + id, false, cookies);
-                if(r == null)
-                    throw new Exception("Request failed");
-                String location = r.header("location");
-                if (r.code() == 302 && location != null && location.contains("captcha.php")) {
-                    r.close();
+                if (r.code() == 302 && r.header("location").contains("captcha.php")) {
                     return LOAD_CAPTCHA;
                 }
-                String body = CustomHttpClient.readBody(r);
-                r = null;
+                String body = r.body().string();
+                r.close();
                 if (body.contains("Connect Error: Connection timed out")) {
                     //adblock : try again
-                    tries++;
+                    r.close();
+                    tries = 0;
                     continue;
                 }
 
@@ -207,10 +207,9 @@ public class Manga {
 
             } catch (Exception e2) {
                 e2.printStackTrace();
-            } finally {
-                if (r != null) {
-                    r.close();
-                }
+            }
+            if (r != null) {
+                r.close();
             }
             tries++;
         }
@@ -395,11 +394,7 @@ public class Manga {
 
     @Override
     public boolean equals(Object obj) {
-        if(this == obj)
-            return true;
-        if(!(obj instanceof Manga))
-            return false;
-        return this.id == ((Manga) obj).getId();
+        return obj instanceof Manga && this.id == ((Manga) obj).getId();
     }
 
     @Override
@@ -466,13 +461,11 @@ public class Manga {
             if (eps == null || eps.size() == 0) {
                 return null;
             } else {
-                int index = eps.indexOf(this);
-                if(index < 0)
-                    return null;
-                for(int i = index - 1; i >= 0; i--) {
-                    Manga candidate = eps.get(i);
-                    if(candidate != null && candidate.getId() != id)
-                        return candidate;
+                int index = findEpisodeIndex();
+                if (index < 0) return null;
+                for (int i = index - 1; i >= 0; i--) {
+                    Manga episode = eps.get(i);
+                    if (episode != null && episode.getId() != id) return episode;
                 }
                 return null;
             }
@@ -486,19 +479,30 @@ public class Manga {
             if (eps == null || eps.size() == 0) {
                 return null;
             } else {
-                int index = eps.indexOf(this);
-                if(index < 0)
-                    return null;
-                for(int i = index + 1; i < eps.size(); i++) {
-                    Manga candidate = eps.get(i);
-                    if(candidate != null && candidate.getId() != id)
-                        return candidate;
+                int index = findEpisodeIndex();
+                if (index < 0) return null;
+                for (int i = index + 1; i < eps.size(); i++) {
+                    Manga episode = eps.get(i);
+                    if (episode != null && episode.getId() != id) return episode;
                 }
                 return null;
             }
         } else {
             return prevEp;
         }
+    }
+
+    private int findEpisodeIndex() {
+        if (eps == null) return -1;
+        for (int i = 0; i < eps.size(); i++) {
+            Manga episode = eps.get(i);
+            if (episode == this) return i;
+        }
+        for (int i = 0; i < eps.size(); i++) {
+            Manga episode = eps.get(i);
+            if (episode != null && episode.getId() == id) return i;
+        }
+        return -1;
     }
 
     public void setPrevEp(Manga m) {
