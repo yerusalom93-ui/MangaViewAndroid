@@ -33,21 +33,24 @@ public class UpdatedList {
         //50 items per page
         result = new ArrayList<>();
         String url = "/bbs/page.php?hid=update&page=";
-        if(!last) {
+        if(last)
+            return;
+
+        int requestedPage = page;
+        for(int attempt = 0; attempt <= MAX_TIMEOUT_RETRIES; attempt++) {
             try {
-                Response response= client.mget(url + page++,true,null);
+                Response response= client.mget(url + requestedPage,true,null);
+                int code = response == null ? 500 : response.code();
                 String body = CustomHttpClient.readBody(response);
-                if(body.contains("Connect Error: Connection timed out")){
-                    //adblock : try again
-                    page--;
-                    if(timeoutRetries++ < MAX_TIMEOUT_RETRIES)
-                        fetch(client);
-                    else
-                        timeoutRetries = 0;
+                if(code >= 400)
                     return;
+                if(body.contains("Connect Error: Connection timed out")){
+                    timeoutRetries = attempt + 1;
+                    continue;
                 }
                 Document document = Jsoup.parse(body);
                 Elements items = document.select("div.post-row");
+                page = requestedPage + 1;
                 if (items == null || items.size() < 70) last = true;
                 for(Element item : items){
                     try {
@@ -86,12 +89,14 @@ public class UpdatedList {
                     }
                 }
                 timeoutRetries = 0;
+                return;
             } catch (Exception e) {
                 e.printStackTrace();
                 timeoutRetries = 0;
-                page--;
+                return;
             }
         }
+        timeoutRetries = 0;
     }
 
     public ArrayList<UpdatedManga> getResult() {
