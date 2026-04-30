@@ -293,7 +293,9 @@ public class ViewerActivity extends AppCompatActivity {
         cut.setOnClickListener(v -> toggleAutoCut());
 
         pageBtn.setOnClickListener(v -> {
-            PageItem current = stripAdapter.getCurrentVisiblePage();
+            PageItem current = getFocusedVisiblePage();
+            if(current == null)
+                return;
             AlertDialog.Builder alert;
             if(dark) alert = new AlertDialog.Builder(context,R.style.darkDialog);
             else alert = new AlertDialog.Builder(context);
@@ -434,7 +436,7 @@ public class ViewerActivity extends AppCompatActivity {
             getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN);
         }
         else {
-            PageItem item = stripAdapter.getCurrentVisiblePage();
+            PageItem item = getFocusedVisiblePage();
             if(item != null) {
                 pageBtn.setText(item.index+1 + "/" + item.manga.getImgs(context).size());
                 toolbarTitle.setText(item.manga.getName());
@@ -458,7 +460,7 @@ public class ViewerActivity extends AppCompatActivity {
     }
 
     public void toggleAutoCut(){
-        PageItem page = stripAdapter.getCurrentVisiblePage();
+        PageItem page = getFocusedVisiblePage();
         if(autoCut){
             autoCut = false;
             cut.setBackgroundResource(R.drawable.button_bg);
@@ -682,6 +684,71 @@ public class ViewerActivity extends AppCompatActivity {
         }
     }
 
+    private PageItem getFirstVisiblePage() {
+        if(manager == null || stripAdapter == null)
+            return null;
+        int first = manager.findFirstVisibleItemPosition();
+        int last = manager.findLastVisibleItemPosition();
+        if(first == RecyclerView.NO_POSITION || last == RecyclerView.NO_POSITION)
+            return null;
+        for(int i = Math.max(0, first); i <= last && i < stripAdapter.getItemCount(); i++) {
+            PageItem page = stripAdapter.getPageAtPosition(i);
+            if(page != null)
+                return page;
+        }
+        return null;
+    }
+
+    private PageItem getLastVisiblePage() {
+        if(manager == null || stripAdapter == null)
+            return null;
+        int first = manager.findFirstVisibleItemPosition();
+        int last = manager.findLastVisibleItemPosition();
+        if(first == RecyclerView.NO_POSITION || last == RecyclerView.NO_POSITION)
+            return null;
+        for(int i = Math.min(last, stripAdapter.getItemCount() - 1); i >= first && i >= 0; i--) {
+            PageItem page = stripAdapter.getPageAtPosition(i);
+            if(page != null)
+                return page;
+        }
+        return null;
+    }
+
+    private PageItem getFocusedVisiblePage() {
+        if(strip == null || manager == null || stripAdapter == null)
+            return stripAdapter != null ? stripAdapter.getCurrentVisiblePage() : null;
+        int first = manager.findFirstVisibleItemPosition();
+        int last = manager.findLastVisibleItemPosition();
+        if(first == RecyclerView.NO_POSITION || last == RecyclerView.NO_POSITION)
+            return stripAdapter.getCurrentVisiblePage();
+
+        int viewportTop = strip.getPaddingTop();
+        int viewportBottom = strip.getHeight() - strip.getPaddingBottom();
+        int center = (viewportTop + viewportBottom) / 2;
+        PageItem bestPage = null;
+        int bestVisible = -1;
+
+        for(int i = Math.max(0, first); i <= last && i < stripAdapter.getItemCount(); i++) {
+            PageItem page = stripAdapter.getPageAtPosition(i);
+            if(page == null)
+                continue;
+            View view = manager.findViewByPosition(i);
+            if(view == null) {
+                if(bestPage == null)
+                    bestPage = page;
+                continue;
+            }
+            if(view.getTop() <= center && view.getBottom() >= center)
+                return page;
+            int visible = Math.max(0, Math.min(view.getBottom(), viewportBottom) - Math.max(view.getTop(), viewportTop));
+            if(visible > bestVisible) {
+                bestVisible = visible;
+                bestPage = page;
+            }
+        }
+        return bestPage != null ? bestPage : stripAdapter.getCurrentVisiblePage();
+    }
+
     private boolean isAtViewerTop() {
         if(strip == null)
             return false;
@@ -689,7 +756,7 @@ public class ViewerActivity extends AppCompatActivity {
             return true;
         if(stripAdapter == null || manager == null)
             return false;
-        PageItem page = stripAdapter.getCurrentVisiblePage();
+        PageItem page = getFirstVisiblePage();
         if(page == null || page.manga == null || page.index != 0)
             return false;
         int firstPagePosition = stripAdapter.findFirstPagePosition(page.manga);
@@ -700,7 +767,7 @@ public class ViewerActivity extends AppCompatActivity {
     }
 
     private void attachPreviousEpisode(boolean jumpToEpisode) {
-        PageItem page = stripAdapter.getCurrentVisiblePage();
+        PageItem page = getFirstVisiblePage();
         if(page == null || page.manga == null || !page.manga.isOnline())
             return;
         Manga target = page.manga.prevEp();
@@ -782,7 +849,7 @@ public class ViewerActivity extends AppCompatActivity {
     }
 
     private void attachNextEpisode(boolean jumpToEpisode) {
-        PageItem page = stripAdapter.getCurrentVisiblePage();
+        PageItem page = getLastVisiblePage();
         if(page == null || page.manga == null || !page.manga.isOnline())
             return;
         Manga target = page.manga.nextEp();
@@ -845,7 +912,7 @@ public class ViewerActivity extends AppCompatActivity {
             prev.setEnabled(true);
             prev.setColorFilter(null);
         }
-        PageItem page = stripAdapter.getCurrentVisiblePage();
+        PageItem page = getFocusedVisiblePage();
         if(page!=null)
             pageBtn.setText(page.index+1+"/"+page.manga.getImgs(context).size());
     }

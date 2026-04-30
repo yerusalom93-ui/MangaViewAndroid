@@ -240,14 +240,11 @@ public class StripAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> 
         return false;
     }
 
-    private PageItem firstLoadedPage() {
-        if(items == null)
+    public PageItem getPageAtPosition(int position) {
+        if(items == null || position < 0 || position >= items.size())
             return null;
-        for(Object item : items) {
-            if(item instanceof PageItem)
-                return (PageItem)item;
-        }
-        return null;
+        Object item = items.get(position);
+        return item instanceof PageItem ? (PageItem)item : null;
     }
 
     // data is passed into the constructor
@@ -491,7 +488,6 @@ public class StripAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> 
         if(containsCurrentPage())
             return current;
         clearCurrentPage();
-        current = firstLoadedPage();
         return current;
     }
 
