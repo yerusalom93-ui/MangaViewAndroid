@@ -88,6 +88,7 @@ public class ViewerActivity extends AppCompatActivity {
     InfiniteScrollCallback infiniteScrollCallback;
     loadImages loader;
     prefetchImages nextPrefetcher;
+    int episodeLoaderGeneration = 0;
     boolean previousEpisodeBoundaryLoading = false;
     boolean nextEpisodeBoundaryLoading = false;
     boolean previousEpisodeBoundaryJumpPending = false;
@@ -151,7 +152,16 @@ public class ViewerActivity extends AppCompatActivity {
                 Manga target = curm.prevEp();
                 if(target != null) {
                     cancelActiveEpisodeLoader();
+                    previousEpisodeBoundaryLoading = true;
+                    int generation = episodeLoaderGeneration;
                     loader = new loadImages(target, m -> {
+                        if(!isActiveEpisodeLoader(generation) || m == null || !isPreviousTargetStillExpected(m)) {
+                            if(isActiveEpisodeLoader(generation)) {
+                                previousEpisodeBoundaryLoading = false;
+                                previousEpisodeBoundaryJumpPending = false;
+                            }
+                            return;
+                        }
                         if (m.getImgs(context).size() > 0) {
                             insertMangaWhenIdle(m, () -> callback.prevLoaded(m));
                         } else {
@@ -180,7 +190,16 @@ public class ViewerActivity extends AppCompatActivity {
                         return target;
                     }
                     cancelActiveEpisodeLoader();
+                    nextEpisodeBoundaryLoading = true;
+                    int generation = episodeLoaderGeneration;
                     loader = new loadImages(target, m -> {
+                        if(!isActiveEpisodeLoader(generation) || m == null || !isNextTargetStillExpected(m)) {
+                            if(isActiveEpisodeLoader(generation)) {
+                                nextEpisodeBoundaryLoading = false;
+                                nextEpisodeBoundaryJumpPending = false;
+                            }
+                            return;
+                        }
                         if (m.getImgs(context).size() > 0) {
                             appendMangaWhenIdle(m, () -> {
                                 callback.nextLoaded(m);
@@ -825,11 +844,15 @@ public class ViewerActivity extends AppCompatActivity {
         pendingPreviousJumpPosition = RecyclerView.NO_POSITION;
         strip.postDelayed(() -> {
             if(strip != null && manager != null && stripAdapter != null && !isFinishing()) {
+                if(strip.getScrollState() != RecyclerView.SCROLL_STATE_IDLE) {
+                    schedulePreviousJump(target, stripAdapter.findLastPagePosition(target));
+                    return;
+                }
                 int position = stripAdapter.findLastPagePosition(target);
-                if(position == RecyclerView.NO_POSITION)
+                if(position == RecyclerView.NO_POSITION || stripAdapter.getItemCount() == 0)
                     return;
                 strip.stopScroll();
-                int boundaryPosition = Math.min(position + 1, stripAdapter.getItemCount() - 1);
+                int boundaryPosition = Math.max(0, Math.min(position + 1, stripAdapter.getItemCount() - 1));
                 manager.scrollToPositionWithOffset(boundaryPosition, strip.getHeight());
                 manga = target;
                 updateIntent(target);
@@ -959,14 +982,16 @@ public class ViewerActivity extends AppCompatActivity {
         if(target == null || strip == null)
             return;
         strip.post(() -> {
-            if(stripAdapter != null && !isFinishing()) {
+            runStripMutationWhenReady(() -> {
+                if(stripAdapter == null || isFinishing())
+                    return;
                 if(!stripAdapter.hasMangaLoaded(target))
                     stripAdapter.appendManga(target);
                 if(!stripAdapter.hasMangaLoaded(target))
                     return;
                 if(afterAppend != null)
                     afterAppend.run();
-            }
+            }, 0);
         });
     }
 
@@ -974,24 +999,58 @@ public class ViewerActivity extends AppCompatActivity {
         if(target == null || strip == null)
             return;
         strip.post(() -> {
-            if(stripAdapter != null && !isFinishing()) {
+            runStripMutationWhenReady(() -> {
+                if(stripAdapter == null || isFinishing())
+                    return;
                 if(!stripAdapter.hasMangaLoaded(target))
                     stripAdapter.insertManga(target);
                 if(!stripAdapter.hasMangaLoaded(target))
                     return;
                 if(afterInsert != null)
                     afterInsert.run();
-            }
+            }, 0);
         });
     }
 
+    private void runStripMutationWhenReady(Runnable mutation, int attempts) {
+        if(strip == null || isFinishing())
+            return;
+        if(strip.isComputingLayout()) {
+            if(attempts < 20)
+                strip.postDelayed(() -> runStripMutationWhenReady(mutation, attempts + 1), 50);
+            return;
+        }
+        mutation.run();
+    }
+
     private void cancelActiveEpisodeLoader() {
+        episodeLoaderGeneration++;
         if(loader != null)
             loader.cancel(true);
         previousEpisodeBoundaryLoading = false;
         nextEpisodeBoundaryLoading = false;
         previousEpisodeBoundaryJumpPending = false;
         nextEpisodeBoundaryJumpPending = false;
+    }
+
+    private boolean isActiveEpisodeLoader(int generation) {
+        return generation == episodeLoaderGeneration && !isFinishing();
+    }
+
+    private boolean isPreviousTargetStillExpected(Manga target) {
+        PageItem first = getFirstVisiblePage();
+        return first != null && sameManga(first.manga != null ? first.manga.prevEp() : null, target);
+    }
+
+    private boolean isNextTargetStillExpected(Manga target) {
+        PageItem last = getLastVisiblePage();
+        return last != null && sameManga(last.manga != null ? last.manga.nextEp() : null, target);
+    }
+
+    private boolean sameManga(Manga a, Manga b) {
+        return a != null && b != null
+                && a.getId() == b.getId()
+                && a.getBaseMode() == b.getBaseMode();
     }
 
     @Override

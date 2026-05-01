@@ -5,12 +5,8 @@ import android.content.Context;
 import androidx.appcompat.app.AppCompatDelegate;
 import androidx.multidex.MultiDexApplication;
 
-import org.acra.ACRA;
-import org.acra.config.CoreConfigurationBuilder;
-import org.acra.config.DialogConfigurationBuilder;
-import org.acra.data.StringFormat;
-
 import ml.melun.mangaview.mangaview.CustomHttpClient;
+import ml.melun.mangaview.report.CrashReporter;
 
 
 
@@ -23,21 +19,11 @@ public class MainApplication extends MultiDexApplication {
     @Override
     protected void attachBaseContext(Context base) {
         super.attachBaseContext(base);
-        ACRA.init(this, new CoreConfigurationBuilder()
-                .withBuildConfigClass(BuildConfig.class)
-                .withReportFormat(StringFormat.JSON)
-                .withPluginConfigurations(
-                        new DialogConfigurationBuilder()
-                                .withTitle("MangaView")
-                                .withText(getResources().getText(R.string.acra_dialog_text).toString())
-                                .withPositiveButtonText("확인")
-                                .withNegativeButtonText("취소")
-                                .build()
-                ));
     }
 
     @Override
     public void onCreate() {
+        CrashReporter.install(this);
         AppCompatDelegate.setCompatVectorFromResourcesEnabled(true);
         p = new Preference(this);
         httpClient = new CustomHttpClient(this);
