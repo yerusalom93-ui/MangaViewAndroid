@@ -47,6 +47,7 @@ public class CustomHttpClient {
     Map<String, String> cookies;
     Map<String, Long> cookieSyncAt;
     Map<String, CachedPage> pageCache;
+    Map<String, PageLoadState> pageLoads;
     private final Object wfwfDomainLock = new Object();
     private DomainResolveState wfwfDomainResolveState;
     private long wfwfDomainLastForcedRetry = 0;
@@ -57,6 +58,7 @@ public class CustomHttpClient {
         this.context = context.getApplicationContext();
         this.cookies = new HashMap<>();
         this.cookieSyncAt = new HashMap<>();
+        this.pageLoads = new HashMap<>();
         this.pageCache = new LinkedHashMap<String, CachedPage>(PAGE_CACHE_MAX_ENTRIES, 0.75f, true) {
             @Override
             protected boolean removeEldestEntry(Map.Entry<String, CachedPage> eldest) {
@@ -343,24 +345,59 @@ public class CustomHttpClient {
         String normalized = normalizePath(url);
         String cacheKey = getBaseUrl(normalized) + normalized;
         long now = System.currentTimeMillis();
+        PageLoadState activeLoad = null;
+        synchronized (this) {
+            CachedPage cached = pageCache.get(cacheKey);
+            if(cached != null && now - cached.time < ttlMillis)
+                return new PageResponse(cached.code, cached.body, true);
+            activeLoad = pageLoads.get(cacheKey);
+            if(activeLoad == null)
+                pageLoads.put(cacheKey, new PageLoadState());
+        }
+        if(activeLoad != null)
+            return waitForCachedPage(cacheKey, activeLoad, ttlMillis);
+        String loadKey = cacheKey;
+
+        PageLoadState loadState;
+        synchronized (this) {
+            loadState = pageLoads.get(loadKey);
+        }
+        try {
+            Response response = mget(normalized, true, null);
+            if(response == null)
+                throw new Exception("Request failed: " + normalized);
+            int code = response.code();
+            String body = readBody(response);
+            if(code >= 200 && code < 400 && body.length() > 0 && looksCacheable(body)) {
+                cacheKey = getBaseUrl(normalized) + normalized;
+                synchronized (this) {
+                    pageCache.put(cacheKey, new CachedPage(code, body, now));
+                }
+            }
+            return new PageResponse(code, body, false);
+        } finally {
+            synchronized (this) {
+                pageLoads.remove(loadKey);
+            }
+            if(loadState != null)
+                loadState.done.countDown();
+        }
+    }
+
+    private PageResponse waitForCachedPage(String cacheKey, PageLoadState loadState, long ttlMillis) throws Exception {
+        try {
+            loadState.done.await(10, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw e;
+        }
+        long now = System.currentTimeMillis();
         synchronized (this) {
             CachedPage cached = pageCache.get(cacheKey);
             if(cached != null && now - cached.time < ttlMillis)
                 return new PageResponse(cached.code, cached.body, true);
         }
-
-        Response response = mget(normalized, true, null);
-        if(response == null)
-            throw new Exception("Request failed: " + normalized);
-        int code = response.code();
-        String body = readBody(response);
-        if(code >= 200 && code < 400 && body.length() > 0 && looksCacheable(body)) {
-            cacheKey = getBaseUrl(normalized) + normalized;
-            synchronized (this) {
-                pageCache.put(cacheKey, new CachedPage(code, body, now));
-            }
-        }
-        return new PageResponse(code, body, false);
+        throw new Exception("Request failed: " + cacheKey);
     }
 
     public synchronized void clearPageCache() {
@@ -494,7 +531,9 @@ public class CustomHttpClient {
                 || lower.contains("searchitem")
                 || lower.contains("toon=")
                 || lower.contains("image-view")
-                || lower.contains("webtoon-body");
+                || lower.contains("webtoon-body")
+                || lower.contains("miso-post-gallery")
+                || lower.contains("post-row");
     }
 
     public static class PageResponse {
@@ -524,6 +563,10 @@ public class CustomHttpClient {
     private static class DomainResolveState {
         final CountDownLatch done = new CountDownLatch(1);
         volatile boolean changed = false;
+    }
+
+    private static class PageLoadState {
+        final CountDownLatch done = new CountDownLatch(1);
     }
 
     public Response post(String url, RequestBody body, Map<String,String> headers){

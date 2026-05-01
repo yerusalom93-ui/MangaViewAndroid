@@ -36,7 +36,8 @@ public class ViewerPagerAdapter extends FragmentStatePagerAdapter
 
     public void setManga(Manga m){
         fragments.clear();
-        List<String> imgs = m.getImgs(context);
+        List<String> source = m.getImgs(context);
+        List<String> imgs = source == null ? new ArrayList<>() : new ArrayList<>(source);
         if (p.getPageRtl()) Collections.reverse(imgs);
         for(int i = 0; i<imgs.size(); i++){
             String s = imgs.get(i);

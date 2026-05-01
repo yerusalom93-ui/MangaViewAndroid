@@ -33,6 +33,7 @@ public class MainAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     MainUpdatedAdapter uadapter;
     onItemClick mainClickListener;
     boolean dark, loaded = false;
+    MainFetcher fetcher;
 
     List<Object> data;
 
@@ -92,8 +93,11 @@ public class MainAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     public void fetch(){
         //fetch main page data
+        if(fetcher != null)
+            fetcher.cancel(true);
         uadapter.setLoad();
-        new MainFetcher().executeOnExecutor(LifecycleTask.THREAD_POOL_EXECUTOR);
+        fetcher = new MainFetcher();
+        fetcher.executeOnExecutor(LifecycleTask.THREAD_POOL_EXECUTOR);
     }
 
     @Override
@@ -405,10 +409,16 @@ public class MainAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         @Override
         protected void onPostExecute(MainPage u) {
             super.onPostExecute(u);
+            if(fetcher != this)
+                return;
+            fetcher = null;
+            if(u == null)
+                return;
             //update adapters?
             if(u.getRecent().size() == 0){
                 // captcha?
-                mainClickListener.captchaCallback();
+                if(mainClickListener != null)
+                    mainClickListener.captchaCallback();
             }
             uadapter.setData(u.getRecent());
 
@@ -474,6 +484,13 @@ public class MainAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                     }
                 }
             }
+        }
+
+        @Override
+        protected void onCancelled(MainPage result) {
+            super.onCancelled(result);
+            if(fetcher == this)
+                fetcher = null;
         }
     }
 

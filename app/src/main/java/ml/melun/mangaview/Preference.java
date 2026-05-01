@@ -273,6 +273,8 @@ public class Preference {
         prefsEditor.apply();
     }
     public void removeRecent(int position){
+        if(position < 0 || position >= recent.size())
+            return;
         MTitle title = recent.remove(position);
         writeRecent();
         removeBookmark(title);
@@ -280,22 +282,22 @@ public class Preference {
     }
 
     public void addRecent(MTitle tmp){
-        if(tmp.getId()>0) {
+        if(tmp != null && tmp.getId()>0) {
             int position = getIndexOf(tmp);
             if (position > -1) {
-                recent.add(0, recent.get(position));
-                recent.remove(position + 1);
+                recent.remove(position);
+                recent.add(0, tmp);
             } else recent.add(0, tmp);
             writeRecent();
         }
     }
     public void addRecent(Title tmp){
-        if(tmp.getId()>0) {
+        if(tmp != null && tmp.getId()>0) {
             MTitle title = tmp.minimize();
             int position = getIndexOf(title);
             if (position > -1) {
-                recent.add(0, recent.get(position));
-                recent.remove(position + 1);
+                recent.remove(position);
+                recent.add(0, title);
             } else recent.add(0, title);
             writeRecent();
         }
@@ -303,8 +305,13 @@ public class Preference {
 
 
     public void updateRecentData(MTitle title){
+        if(title == null)
+            return;
         MTitle tmp = title.clone();
-        recent.set(0, tmp);
+        if(recent.size() == 0)
+            recent.add(tmp);
+        else
+            recent.set(0, tmp);
         writeRecent();
         int index = findFavorite(tmp);
         if(index>-1){
@@ -316,8 +323,13 @@ public class Preference {
     }
 
     public void updateRecentData(Title title){
+        if(title == null)
+            return;
         MTitle tmp = title.minimize();
-        recent.set(0, tmp);
+        if(recent.size() == 0)
+            recent.add(tmp);
+        else
+            recent.set(0, tmp);
         writeRecent();
         int index = findFavorite(tmp);
         if(index>-1){
@@ -453,12 +465,18 @@ public class Preference {
     }
 
     public boolean toggleFavorite(Title tmp, int position){
+            if(tmp == null)
+                return false;
             return toggleFavorite(tmp.minimize(), position);
     }
 
     public boolean toggleFavorite(MTitle title, int position){
+        if(title == null)
+            return false;
         int index = findFavorite(title);
         if(index==-1){
+            if(position < 0 || position > favorite.size())
+                position = favorite.size();
             favorite.add(position,title);
             Gson gson = new Gson();
             prefsEditor.putString("favorite", gson.toJson(favorite));
@@ -474,7 +492,7 @@ public class Preference {
     }
 
     public int findFavorite(MTitle title){
-        if(title.getId()>0){
+        if(title != null && title.getId()>0){
             return favorite.indexOf(title);
         }
         return -1;
