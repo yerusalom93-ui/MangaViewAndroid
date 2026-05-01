@@ -108,7 +108,8 @@ public class Manga {
             try {
                 if(r == null)
                     break;
-                if (r.code() == 302 && r.header("location").contains("captcha.php")) {
+                String location = r.header("location");
+                if (r.code() == 302 && location != null && location.contains("captcha.php")) {
                     r.close();
                     return LOAD_CAPTCHA;
                 }
@@ -124,62 +125,72 @@ public class Manga {
                 Document d = Jsoup.parse(body);
 
                 //name
-                name = d.selectFirst("div.toon-title").ownText();
+                Element titleElement = d.selectFirst("div.toon-title");
+                if(titleElement != null)
+                    name = titleElement.ownText();
 
                 //temp title
                 Element navbar = d.selectFirst("div.toon-nav");
-                int tid = Integer.parseInt(navbar.select("a")
-                        .last()
-                        .attr("href")
-                        .split(baseModeStr(baseMode) + '/')[1]
-                        .split("\\?")[0]);
+                if(navbar != null) {
+                    Element titleLink = navbar.select("a").last();
+                    if(titleLink != null) {
+                        int tid = parseEpisodeId(titleLink.attr("href"), baseModeStr(baseMode) + '/');
+                        if (title == null && tid > 0) title = new Title(name, "", "", null, "", tid, baseMode);
+                    }
 
-                if (title == null) title = new Title(name, "", "", null, "", tid, baseMode);
-
-                //eps
-                for (Element e : navbar.selectFirst("select").select("option")) {
-                    String idstr = e.attr("value");
-                    if (idstr.length() > 0)
-                        eps.add(new Manga(Integer.parseInt(idstr), e.ownText(), "", baseMode));
+                    //eps
+                    Element select = navbar.selectFirst("select");
+                    if(select != null) {
+                        for (Element e : select.select("option")) {
+                            String idstr = e.attr("value");
+                            if (idstr.length() > 0)
+                                eps.add(new Manga(Integer.parseInt(idstr), e.ownText(), "", baseMode));
+                        }
+                    }
                 }
 
                 //imgs
-                String script = d.select("div.view-padding").get(1).selectFirst("script").data();
-                StringBuilder encodedData = new StringBuilder();
-                encodedData.append('%');
-                for (String line : script.split("\n")) {
-                    if (line.contains("html_data+=")) {
-                        encodedData.append(line.substring(line.indexOf('\'') + 1, line.lastIndexOf('\'')).replaceAll("[.]", "%"));
-                    }
-                }
-                if (encodedData.lastIndexOf("%") == encodedData.length() - 1)
-                    encodedData.deleteCharAt(encodedData.length() - 1);
-                String imgdiv = URLDecoder.decode(encodedData.toString(), "UTF-8");
-
-                Document id = Jsoup.parse(imgdiv);
-                for (Element e : id.select("img")) {
-                    String style = e.attr("style");
-                    if (style.length() == 0) {
-                        boolean flag = false;
-                        for (Attribute a : e.attributes()) {
-                            if (a.getKey().contains("data")) {
-                                String img = a.getValue();
-                                if (!img.isEmpty() && !img.contains("blank") && !img.contains("loading")) {
-                                    flag = true;
-                                    if (img.startsWith("/"))
-                                        imgs.add(client.getUrl(baseMode) + img);
-                                    else
-                                        imgs.add(img);
-                                }
-                            }
+                Element scriptElement = findImageScript(d);
+                if(scriptElement != null) {
+                    String script = scriptElement.data();
+                    StringBuilder encodedData = new StringBuilder();
+                    encodedData.append('%');
+                    for (String line : script.split("\n")) {
+                        if (line.contains("html_data+=") && line.indexOf('\'') >= 0 && line.lastIndexOf('\'') > line.indexOf('\'')) {
+                            encodedData.append(line.substring(line.indexOf('\'') + 1, line.lastIndexOf('\'')).replaceAll("[.]", "%"));
                         }
-                        if (!flag) {
-                            String img = e.attr("src");
-                            if (!img.isEmpty() && !img.contains("blank") && !img.contains("loading")) {
-                                if (img.startsWith("/"))
-                                    imgs.add(client.getUrl(baseMode) + img);
-                                else
-                                    imgs.add(img);
+                    }
+                    if (encodedData.lastIndexOf("%") == encodedData.length() - 1)
+                        encodedData.deleteCharAt(encodedData.length() - 1);
+                    if(encodedData.length() > 0) {
+                        String imgdiv = URLDecoder.decode(encodedData.toString(), "UTF-8");
+
+                        Document id = Jsoup.parse(imgdiv);
+                        for (Element e : id.select("img")) {
+                            String style = e.attr("style");
+                            if (style.length() == 0) {
+                                boolean flag = false;
+                                for (Attribute a : e.attributes()) {
+                                    if (a.getKey().contains("data")) {
+                                        String img = a.getValue();
+                                        if (!img.isEmpty() && !img.contains("blank") && !img.contains("loading")) {
+                                            flag = true;
+                                            if (img.startsWith("/"))
+                                                imgs.add(client.getUrl(baseMode) + img);
+                                            else
+                                                imgs.add(img);
+                                        }
+                                    }
+                                }
+                                if (!flag) {
+                                    String img = e.attr("src");
+                                    if (!img.isEmpty() && !img.contains("blank") && !img.contains("loading")) {
+                                        if (img.startsWith("/"))
+                                            imgs.add(client.getUrl(baseMode) + img);
+                                        else
+                                            imgs.add(img);
+                                    }
+                                }
                             }
                         }
                     }
@@ -219,6 +230,26 @@ public class Manga {
             tries++;
         }
         return LOAD_OK;
+    }
+
+    private int parseEpisodeId(String href, String marker) {
+        try {
+            if(href == null || !href.contains(marker))
+                return -1;
+            return Integer.parseInt(href.split(marker)[1].split("\\?")[0]);
+        } catch (Exception e) {
+            return -1;
+        }
+    }
+
+    private Element findImageScript(Document d) {
+        Elements paddings = d.select("div.view-padding");
+        for(Element padding : paddings) {
+            Element script = padding.selectFirst("script");
+            if(script != null && script.data().contains("html_data+="))
+                return script;
+        }
+        return d.selectFirst("script:containsData(html_data+=)");
     }
 
     private int fetchWolf(CustomHttpClient client, String viewPath, String epPath) {

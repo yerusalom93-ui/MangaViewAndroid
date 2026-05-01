@@ -50,34 +50,61 @@ public class MainPage {
             Element infos;
             Title ttmp;
 
-            for(Element e : d.selectFirst("div.miso-post-gallery").select("div.post-row")){
-                id = Integer.parseInt(e.selectFirst("a").attr("href").split("comic/")[1]);
-                infos = e.selectFirst("div.img-item");
-                thumb = infos.selectFirst("img").attr("src");
-                name = infos.selectFirst("b").ownText();
+            Element recentGallery = d.selectFirst("div.miso-post-gallery");
+            if(recentGallery != null) {
+                for(Element e : recentGallery.select("div.post-row")){
+                    Element link = e.selectFirst("a[href*=comic/]");
+                    infos = e.selectFirst("div.img-item");
+                    if(link == null || infos == null)
+                        continue;
+                    id = parseComicId(link.attr("href"));
+                    if(id <= 0)
+                        continue;
+                    Element img = infos.selectFirst("img");
+                    Element subject = infos.selectFirst("b");
+                    thumb = img != null ? img.attr("src") : "";
+                    name = subject != null ? subject.ownText() : link.attr("title");
 
-                mtmp = new Manga(id, name, "", base_comic);
-                mtmp.addThumb(thumb);
-                recent.add(mtmp);
+                    mtmp = new Manga(id, name, "", base_comic);
+                    mtmp.addThumb(thumb);
+                    recent.add(mtmp);
+                }
             }
 
             int i=1;
-            for(Element e : d.select("div.miso-post-gallery").last().select("div.post-row")){
-                id = Integer.parseInt(e.selectFirst("a").attr("href").split("comic/")[1]);
-                infos = e.selectFirst("div.img-item");
-                thumb = infos.selectFirst("img").attr("src");
-                name = infos.selectFirst("div.in-subject").ownText();
+            Element rankingGallery = d.select("div.miso-post-gallery").last();
+            if(rankingGallery != null) {
+                for(Element e : rankingGallery.select("div.post-row")){
+                    Element link = e.selectFirst("a[href*=comic/]");
+                    infos = e.selectFirst("div.img-item");
+                    if(link == null || infos == null)
+                        continue;
+                    id = parseComicId(link.attr("href"));
+                    if(id <= 0)
+                        continue;
+                    Element img = infos.selectFirst("img");
+                    Element subject = infos.selectFirst("div.in-subject");
+                    thumb = img != null ? img.attr("src") : "";
+                    name = subject != null ? subject.ownText() : link.attr("title");
 
-                ranking.add(new RankingTitle(name, thumb, "", null, "", id, base_comic, i++));
+                    ranking.add(new RankingTitle(name, thumb, "", null, "", id, base_comic, i++));
+                }
             }
 
             i=1;
-            for(Element e : d.select("div.miso-post-list").last().select("li.post-row")){
-                infos = e.selectFirst("a");
-                id = Integer.parseInt(infos.attr("href").split("comic/")[1]);
-                name = infos.ownText();
+            Element weeklyList = d.select("div.miso-post-list").last();
+            if(weeklyList != null) {
+                for(Element e : weeklyList.select("li.post-row")){
+                    infos = e.selectFirst("a[href*=comic/]");
+                    if(infos == null)
+                        continue;
+                    id = parseComicId(infos.attr("href"));
+                    if(id <= 0)
+                        continue;
+                    name = infos.ownText();
 
-                weeklyRanking.add(new RankingManga(id, name, "", base_comic, i++));
+                    weeklyRanking.add(new RankingManga(id, name, "", base_comic, i++));
+                }
             }
                 return;
 
@@ -122,6 +149,16 @@ public class MainPage {
             e.printStackTrace();
         }
 */
+    }
+
+    private int parseComicId(String href) {
+        try {
+            if(href == null || !href.contains("comic/"))
+                return -1;
+            return Integer.parseInt(href.split("comic/")[1].split("\\?")[0]);
+        } catch (Exception e) {
+            return -1;
+        }
     }
 
     public static class RankingTitle extends Title{
