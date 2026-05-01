@@ -657,7 +657,7 @@ public class ViewerActivity extends AppCompatActivity {
         int last = manager.findLastVisibleItemPosition();
         int total = manager.getItemCount();
         if(first <= 0 && !previousEpisodeBoundaryLoading)
-            attachPreviousEpisode(true);
+            attachPreviousEpisode(false);
         if(last >= total - 12)
             attachNextEpisode(false);
         if(last >= total - 2 || !strip.canScrollVertically(1))
@@ -669,6 +669,7 @@ public class ViewerActivity extends AppCompatActivity {
             return;
         switch(event.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
+                clearPendingPreviousJump();
                 topPullStartY = event.getY();
                 topPullTriggered = false;
                 topPullEligible = isAtViewerTop();
@@ -698,7 +699,7 @@ public class ViewerActivity extends AppCompatActivity {
                 if(shouldLoadPrevious)
                     attachPreviousEpisode(true);
                 else
-                    runPendingPreviousJump();
+                    clearPendingPreviousJump();
                 break;
         }
     }
@@ -844,10 +845,8 @@ public class ViewerActivity extends AppCompatActivity {
         pendingPreviousJumpPosition = RecyclerView.NO_POSITION;
         strip.postDelayed(() -> {
             if(strip != null && manager != null && stripAdapter != null && !isFinishing()) {
-                if(strip.getScrollState() != RecyclerView.SCROLL_STATE_IDLE) {
-                    schedulePreviousJump(target, stripAdapter.findLastPagePosition(target));
+                if(strip.getScrollState() != RecyclerView.SCROLL_STATE_IDLE)
                     return;
-                }
                 int position = stripAdapter.findLastPagePosition(target);
                 if(position == RecyclerView.NO_POSITION || stripAdapter.getItemCount() == 0)
                     return;
@@ -862,6 +861,12 @@ public class ViewerActivity extends AppCompatActivity {
         }, 80);
     }
 
+    private void clearPendingPreviousJump() {
+        pendingPreviousJumpManga = null;
+        pendingPreviousJumpPosition = RecyclerView.NO_POSITION;
+        previousEpisodeBoundaryJumpPending = false;
+    }
+
     private void clearProgrammaticPreviousJumpBookmark(Manga m) {
         if(m == null || strip == null)
             return;
@@ -872,6 +877,7 @@ public class ViewerActivity extends AppCompatActivity {
     }
 
     private void attachNextEpisode(boolean jumpToEpisode) {
+        clearPendingPreviousJump();
         PageItem page = getLastVisiblePage();
         if(page == null || page.manga == null || !page.manga.isOnline())
             return;
