@@ -89,6 +89,8 @@ public class ViewerActivity extends AppCompatActivity {
     loadImages loader;
     prefetchImages nextPrefetcher;
     int episodeLoaderGeneration = 0;
+    int nextPrefetchEpisodeId = -1;
+    int nextPrefetchBaseMode = -1;
     boolean previousEpisodeBoundaryLoading = false;
     boolean nextEpisodeBoundaryLoading = false;
     boolean previousEpisodeBoundaryJumpPending = false;
@@ -952,10 +954,14 @@ public class ViewerActivity extends AppCompatActivity {
         Manga target = current.nextEp();
         if(target == null)
             return;
+        if(nextPrefetchEpisodeId == target.getId() && nextPrefetchBaseMode == target.getBaseMode())
+            return;
         if(hasLoadedImages(target))
             return;
         if(nextPrefetcher != null)
             nextPrefetcher.cancel(true);
+        nextPrefetchEpisodeId = target.getId();
+        nextPrefetchBaseMode = target.getBaseMode();
         nextPrefetcher = new prefetchImages(target);
         nextPrefetcher.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
     }

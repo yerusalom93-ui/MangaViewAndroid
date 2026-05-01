@@ -21,7 +21,10 @@ import com.bumptech.glide.request.target.CustomTarget;
 import com.bumptech.glide.request.transition.Transition;
 
 import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 import static ml.melun.mangaview.MainApplication.p;
 import static ml.melun.mangaview.Utils.getGlideUrl;
@@ -48,10 +51,12 @@ public class StripAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> 
     int count = 0;
     final static int MaxStackSize = 3;
     private static final int PRELOAD_AHEAD_COUNT = 3;
+    private static final int PRELOAD_TRACK_LIMIT = 200;
     ViewerActivity.InfiniteScrollCallback callback;
     Title title;
 
     List<Object> items;
+    private final Set<String> preloadedImages = new LinkedHashSet<>();
 
     public List<Object> getItems(){
         return items;
@@ -267,10 +272,7 @@ public class StripAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> 
     public void preloadAll(){
         for(Object o : items) {
             if(o instanceof PageItem) {
-                Object url = getImageModel((PageItem) o);
-                Glide.with(mainContext)
-                        .load(url)
-                        .preload();
+                preloadPage((PageItem) o);
             }
         }
     }
@@ -291,6 +293,7 @@ public class StripAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> 
     public void removeAll(){
         int size = items.size();
         items.clear();
+        preloadedImages.clear();
         clearCurrentPage();
         count = 0;
         notifyItemRangeRemoved(0, size);
@@ -470,11 +473,35 @@ public class StripAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> 
         for(int i = adapterPosition + 1; i < items.size() && preloaded < PRELOAD_AHEAD_COUNT; i++) {
             Object next = items.get(i);
             if(next instanceof PageItem) {
-                Glide.with(mainContext)
-                        .load(getImageModel((PageItem) next))
-                        .preload();
+                preloadPage((PageItem) next);
                 preloaded++;
             }
+        }
+    }
+
+    private void preloadPage(PageItem page) {
+        String key = preloadKey(page);
+        if(!preloadedImages.add(key))
+            return;
+        trimPreloadTracker();
+        Glide.with(mainContext)
+                .load(getImageModel(page))
+                .preload();
+    }
+
+    private String preloadKey(PageItem page) {
+        if(page == null || page.manga == null)
+            return "";
+        return page.manga.getBaseMode() + ":" + page.img;
+    }
+
+    private void trimPreloadTracker() {
+        while(preloadedImages.size() > PRELOAD_TRACK_LIMIT) {
+            Iterator<String> iterator = preloadedImages.iterator();
+            if(!iterator.hasNext())
+                return;
+            iterator.next();
+            iterator.remove();
         }
     }
 
