@@ -13,6 +13,7 @@ import static ml.melun.mangaview.mangaview.MTitle.base_comic;
 
 
 public class MainPage {
+    private static final long PAGE_CACHE_TTL_MS = 60 * 1000L;
     private static final int MAX_TIMEOUT_RETRIES = 2;
     List<Manga> recent, favUpdate, onlineRecent;
     List<RankingTitle> ranking;
@@ -34,8 +35,8 @@ public class MainPage {
 
         for(int attempt = 0; attempt <= MAX_TIMEOUT_RETRIES; attempt++) {
             try{
-                Response r = client.mget("",true,null);
-                String body = CustomHttpClient.readBody(r);
+                CustomHttpClient.PageResponse page = client.mgetCachedPage("/", PAGE_CACHE_TTL_MS);
+                String body = page.body;
                 if(body.contains("Connect Error: Connection timed out")){
                     //adblock : try again
                     continue;

@@ -13,6 +13,7 @@ import okhttp3.Response;
 
 
 public class UpdatedList {
+    private static final long PAGE_CACHE_TTL_MS = 30 * 1000L;
     private static final int MAX_TIMEOUT_RETRIES = 2;
 
     Boolean last = false;
@@ -39,9 +40,9 @@ public class UpdatedList {
         int requestedPage = page;
         for(int attempt = 0; attempt <= MAX_TIMEOUT_RETRIES; attempt++) {
             try {
-                Response response= client.mget(url + requestedPage,true,null);
-                int code = response == null ? 500 : response.code();
-                String body = CustomHttpClient.readBody(response);
+                CustomHttpClient.PageResponse pageResponse = client.mgetCachedPage(url + requestedPage, PAGE_CACHE_TTL_MS);
+                int code = pageResponse.code;
+                String body = pageResponse.body;
                 if(code >= 400)
                     return;
                 if(body.contains("Connect Error: Connection timed out")){
@@ -54,30 +55,39 @@ public class UpdatedList {
                 if (items == null || items.size() < 70) last = true;
                 for(Element item : items){
                     try {
-                        String img = item.selectFirst("img").attr("src");
-                        String name = item.selectFirst("div.post-subject").selectFirst("a").ownText();
-                        int id = Integer.parseInt(item
-                                .selectFirst("div.pull-left")
-                                .selectFirst("a")
-                                .attr("href")
-                                .split("comic/")[1]);
+                        Element imgElement = item.selectFirst("img");
+                        Element subjectLink = item.selectFirst("div.post-subject a");
+                        Element episodeLink = item.selectFirst("div.pull-left a[href*=comic/]");
+                        Element right = item.selectFirst("div.pull-right");
+                        Element text = item.selectFirst("div.post-text");
+                        if(imgElement == null || subjectLink == null || episodeLink == null || right == null || text == null)
+                            continue;
+                        String img = imgElement.attr("src");
+                        String name = subjectLink.ownText();
+                        int id = parseComicId(episodeLink.attr("href"));
+                        if(id <= 0)
+                            continue;
 
-                        Elements rightInfo = item.selectFirst("div.pull-right").select("p");
+                        Elements rightInfo = right.select("p");
+                        if(rightInfo.size() < 2)
+                            continue;
+                        Element titleLink = rightInfo.get(0).selectFirst("a[href*=comic/]");
+                        Element dateSpan = rightInfo.get(1).selectFirst("span");
+                        if(titleLink == null || dateSpan == null)
+                            continue;
+                        int tid = parseComicId(titleLink.attr("href"));
+                        if(tid <= 0)
+                            continue;
 
-                        int tid = Integer.parseInt(rightInfo
-                                .get(0)
-                                .selectFirst("a")
-                                .attr("href")
-                                .split("comic/")[1]);
-
-                        String date = rightInfo.get(1).selectFirst("span").ownText();
+                        String date = dateSpan.ownText();
 
 
-                        String at = item.selectFirst("div.post-text").ownText();
+                        String at = text.ownText();
                         //작가 작가 태그1,태그2,태그3
-                        String author = at.substring(0,at.lastIndexOf(' '));
+                        int split = at.lastIndexOf(' ');
+                        String author = split > 0 ? at.substring(0, split) : "";
 
-                        List<String> tags = Arrays.asList(at.substring(at.lastIndexOf(' ')).split(","));
+                        List<String> tags = split > 0 ? Arrays.asList(at.substring(split).split(",")) : new ArrayList<>();
 
                         UpdatedManga tmp = new UpdatedManga(id, name, date, baseMode,author,tags);
                         tmp.setMode(0);
@@ -97,6 +107,16 @@ public class UpdatedList {
             }
         }
         timeoutRetries = 0;
+    }
+
+    private int parseComicId(String href) {
+        try {
+            if(href == null || !href.contains("comic/"))
+                return -1;
+            return Integer.parseInt(href.split("comic/")[1].split("\\?")[0]);
+        } catch (Exception e) {
+            return -1;
+        }
     }
 
     public ArrayList<UpdatedManga> getResult() {
